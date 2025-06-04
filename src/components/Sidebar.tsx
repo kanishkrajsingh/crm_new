@@ -8,7 +8,9 @@ import {
   BarChart3,
   Package,
   Settings,
-  Droplet
+  Droplet,
+  ShoppingBag,
+  ShoppingCart
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -18,6 +20,7 @@ const Sidebar: React.FC = () => {
   const navItems = [
     { path: '/', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
     { path: '/customers', icon: <Users size={20} />, label: 'Customers' },
+    { path: '/orders', icon: <ShoppingCart size={20} />, label: 'Orders' },
     { path: '/daily-update', icon: <Droplets size={20} />, label: 'Daily Update' },
     { path: '/billing', icon: <CreditCard size={20} />, label: 'Billing' },
     { path: '/reports', icon: <BarChart3 size={20} />, label: 'Reports' },
@@ -33,10 +36,10 @@ const Sidebar: React.FC = () => {
         <div className={`flex items-center ${sidebarOpen ? 'justify-start pl-4' : 'justify-center'}`}>
           <Droplet className="h-8 w-8 text-white" />
           {sidebarOpen && (
-            <span className="ml-2 text-xl font-semibold text-white">AquaCRM</span>
+            <span className="ml-2 text-xl font-semibold text-white">New Kanchan</span>
           )}
         </div>
-      </div>
+      </div>  
       
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="px-2 space-y-1">

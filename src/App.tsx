@@ -5,6 +5,8 @@ import { Toaster } from 'react-hot-toast';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
+import Orders from './pages/Orders';
+import OrdersForm from './pages/OrdersForm';
 import CustomerForm from './pages/CustomerForm';
 import DailyUpdate from './pages/DailyUpdate';
 import Billing from './pages/Billing';
@@ -22,6 +24,9 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="customers" element={<Customers />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="orders/new" element={<OrdersForm />} />
+            <Route path="orders/edit/:id" element={<OrdersForm />} />
             <Route path="customers/new" element={<CustomerForm />} />
             <Route path="customers/edit/:id" element={<CustomerForm />} />
             <Route path="daily-update" element={<DailyUpdate />} />

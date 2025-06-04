@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-
+import React from 'react';
 import { 
-  //TrendingUp, 
+  TrendingUp, 
   Users, 
   Package, 
   RefreshCw, 
@@ -11,99 +9,61 @@ import {
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 
-
 const Dashboard: React.FC = () => {
-  const navigate = useNavigate();
-  const handleNewCustomerFromDashboard = () => {
-    navigate('/customers/new', { state: { fromDashboard: true } });
+  // Mock data - would come from API in real app
+  const stats = {
+    todayOrders: 12,
+    totalMonthlyCustomers: 48,
+    shopCustomersVisited: 15,
+    cansDeliveredToday: 85,
+    cansCollectedToday: 72,
+    pendingCansTotal: 152
   };
-  const handleOrderClick = () => {
-    navigate('/orders/new');
-  };
-  
-
-  const [stats, setStats] = useState({
-    OrdersTotal: 0,
-    totalMonthlyCustomers: 0,
-    shopCustomersTotal: 0,
-    cansDeliveredToday: 0,
-    cansCollectedToday: 0,
-    pendingCansTotal: 0,
-  });
-  const [recentActivity, setRecentActivity] = useState([]);
-
-  useEffect(() => {
-    // Replace these with your actual API endpoints
-    const fetchDashboardData = async () => {
-      try {
-        const statsResponse = await fetch('/api/dashboard');
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          setStats(statsData);
-        } else {
-          console.error('Failed to fetch dashboard stats');
-        }
-
-        const activityResponse = await fetch('/api/dashboard/');
-        if (activityResponse.ok) {
-          const activityData = await activityResponse.json();
-          setRecentActivity(activityData);
-        } else {
-          console.error('Failed to fetch recent activity');
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      }
-    };
-
-    fetchDashboardData();
-  }, []);
 
   const statCards = [
     {
-      title: ' Orders',
-      value: stats.OrdersTotal,
+      title: 'Today\'s Orders',
+      value: stats.todayOrders,
       icon: <ShoppingCart className="h-8 w-8 text-blue-500" />,
-      //change: '+12% from yesterday', // Replace with actual calculation if available in API
+      change: '+12% from yesterday',
       trend: 'up'
     },
     {
       title: 'Monthly Customers',
       value: stats.totalMonthlyCustomers,
       icon: <Users className="h-8 w-8 text-teal-500" />,
-      //change: '+2 this week', // Replace with actual calculation if available in API
+      change: '+2 this week',
       trend: 'up'
     },
     {
-      title: 'Shop Customers ',
-      value: stats.shopCustomersTotal,
-      icon: <Users className="h-8 w-8 text-teal-500" />,
-     // change: '78% of total', // Replace with actual calculation if available in API
+      title: 'Shop Customers Reached',
+      value: stats.shopCustomersVisited,
+      icon: <TrendingUp className="h-8 w-8 text-indigo-500" />,
+      change: '78% of total',
       trend: 'neutral'
     },
     {
       title: 'Cans Delivered Today',
       value: stats.cansDeliveredToday,
       icon: <Package className="h-8 w-8 text-green-500" />,
-      change: '+7% from yesterday', // Replace with actual calculation if available in API
+      change: '+7% from yesterday',
       trend: 'up'
     },
     {
       title: 'Cans Collected Today',
       value: stats.cansCollectedToday,
       icon: <RefreshCw className="h-8 w-8 text-orange-500" />,
-      change: '+5% from yesterday', // Replace with actual calculation if available in API
+      change: '+5% from yesterday',
       trend: 'up'
     },
     {
       title: 'Pending Cans',
       value: stats.pendingCansTotal,
       icon: <Clock className="h-8 w-8 text-red-500" />,
-      //change: '-3% from yesterday', // Replace with actual calculation if available in API
+      change: '-3% from yesterday',
       trend: 'down'
     }
   ];
-
 
   return (
     <div className="space-y-6">
@@ -185,17 +145,16 @@ const Dashboard: React.FC = () => {
             <button className="w-full text-left px-3 py-2 bg-blue-50 hover:bg-blue-100 rounded-lg text-blue-700 transition-colors flex items-center">
               <Package className="h-5 w-5 mr-2" />
               Record Today's Delivery
-              
             </button>
             <button className="w-full text-left px-3 py-2 bg-green-50 hover:bg-green-100 rounded-lg text-green-700 transition-colors flex items-center">
               <RefreshCw className="h-5 w-5 mr-2" />
               Update Can Collection
             </button>
-            <button className="w-full text-left px-3 py-2 bg-purple-50 hover:bg-purple-100 rounded-lg text-purple-700 transition-colors flex items-center"onClick={handleOrderClick} >
+            <button className="w-full text-left px-3 py-2 bg-purple-50 hover:bg-purple-100 rounded-lg text-purple-700 transition-colors flex items-center">
               <ShoppingCart className="h-5 w-5 mr-2" />
               Add New Order
             </button>
-            <button className="w-full text-left px-3 py-2 bg-teal-50 hover:bg-teal-100 rounded-lg text-teal-700 transition-colors flex items-center" onClick={handleNewCustomerFromDashboard}>
+            <button className="w-full text-left px-3 py-2 bg-teal-50 hover:bg-teal-100 rounded-lg text-teal-700 transition-colors flex items-center">
               <Users className="h-5 w-5 mr-2" />
               Register New Customer
             </button>

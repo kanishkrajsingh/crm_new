@@ -23,6 +23,7 @@ export interface CanPrice {
 
 // Daily Update Types
 export interface DailyUpdate {
+  holding_status: number;
   update_id: string;
   customer_id: string;
   date: string;

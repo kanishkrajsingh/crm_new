@@ -7,9 +7,9 @@ import { useApp } from '../context/AppContext';
 import { toast } from 'react-hot-toast';
 
 interface DailyUpdateState {
-  delivered: number | string;
-  collected: number | string;
-  holding_status: number; // Ensure it's always a number, initialize appropriately
+  holding_status: number;
+  delivered: number;
+  collected: number;
   notes: string;
 }
 
@@ -23,16 +23,17 @@ const DailyUpdate: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingCustomerId, setSavingCustomerId] = useState<string | null>(null);
-  const [nextDayCollections, setNextDayCollections] = useState<Array<{ customer_id: string; name: string; holding_status: number }>>([]);
+  const [unreturnedQuantitiesYesterday, setUnreturnedQuantitiesYesterday] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [customersResponse, initialUpdatesResponse] = await Promise.all([
+        const [customersResponse, initialUpdatesResponse, previousDayUpdatesResponse] = await Promise.all([
           fetch('/api/customers'),
           fetch(`/api/daily-updates?date=${selectedDate}`),
+          fetch(`/api/daily-updates?date=${getPreviousDay(selectedDate)}`),
         ]);
 
         if (!customersResponse.ok) {
@@ -42,41 +43,49 @@ const DailyUpdate: React.FC = () => {
         const customersData: Customer[] = await customersResponse.json();
         setCustomers(customersData);
 
-        if (!initialUpdatesResponse.ok) {
-          console.warn('Failed to fetch initial daily updates:', await initialUpdatesResponse.text());
-          setUpdates(customersData.reduce((acc, customer) => ({
-            ...acc,
-            [customer.customer_id]: {
-              delivered: customer.can_qty,
-              collected: 0,
-              holding_status: customer.can_qty, // Initial holding status
-              notes: '',
-            },
-          }), {}));
-        } else {
+        const previousDayUpdatesData: DailyUpdateType[] = previousDayUpdatesResponse.ok ? await previousDayUpdatesResponse.json() : [];
+        const unreturnedYesterday: Record<string, number> = {};
+        previousDayUpdatesData.forEach(update => {
+          const unreturned = update.delivered_qty - update.collected_qty;
+          if (unreturned > 0) {
+            unreturnedYesterday[update.customer_id] = unreturned;
+          }
+        });
+        setUnreturnedQuantitiesYesterday(unreturnedYesterday);
+
+        let initialUpdatesMap: Record<string, DailyUpdateState> = {};
+        if (initialUpdatesResponse.ok) {
           const initialUpdatesData: DailyUpdateType[] = await initialUpdatesResponse.json();
-          const updatesMap: Record<string, DailyUpdateState> = customersData.reduce((acc, customer) => ({
+          initialUpdatesMap = initialUpdatesData.reduce((acc, update) => ({
             ...acc,
-            [customer.customer_id]: {
-              delivered: customer.can_qty,
-              collected: 0,
-              holding_status: customer.can_qty, // Default if no update
-              notes: '',
+            [update.customer_id]: {
+              delivered: update.delivered_qty,
+              collected: update.collected_qty,
+              holding_status: update.holding_status,
+              notes: update.notes,
             },
           }), {});
-
-          initialUpdatesData.forEach(update => {
-            if (updatesMap[update.customer_id]) {
-              updatesMap[update.customer_id] = {
-                delivered: update.delivered_qty,
-                collected: update.collected_qty,
-                holding_status: update.holding_status, // Get from API
-                notes: update.notes,
-              };
-            }
-          });
-          setUpdates(updatesMap);
         }
+
+        const initialUpdatesWithDefaults: Record<string, DailyUpdateState> = customersData.reduce((acc, customer) => {
+          const existingUpdate = initialUpdatesMap[customer.customer_id];
+          const initialDelivered = existingUpdate?.delivered !== undefined ? existingUpdate.delivered : customer.can_qty || 0;
+          const initialCollected = existingUpdate?.collected !== undefined ? existingUpdate.collected : 0;
+          const initialHolding = existingUpdate?.holding_status !== undefined ? existingUpdate.holding_status : initialDelivered + (unreturnedYesterday[customer.customer_id] || 0);
+          const initialNotes = existingUpdate?.notes || '';
+
+          return {
+            ...acc,
+            [customer.customer_id]: {
+              delivered: initialDelivered,
+              collected: initialCollected,
+              holding_status: initialHolding,
+              notes: initialNotes,
+            },
+          };
+        }, {});
+        setUpdates(initialUpdatesWithDefaults);
+
       } catch (err: any) {
         setError(err.message);
         toast.error(err.message);
@@ -86,47 +95,48 @@ const DailyUpdate: React.FC = () => {
     };
 
     fetchInitialData();
-    fetchNextDayCollections(selectedDate); // Fetch next day's collection on date change
   }, [selectedDate]);
 
-  const fetchNextDayCollections = async (date: string) => {
-    try {
-      const response = await fetch(`/api/daily-can-status/next-collection?date=${date}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNextDayCollections(data);
-      } else {
-        console.warn('Failed to fetch next day collections:', await response.text());
-        setNextDayCollections([]);
-      }
-    } catch (error) {
-      console.error('Error fetching next day collections:', error);
-      toast.error('Failed to fetch next day collection information.');
-      setNextDayCollections([]);
-    }
+  const getPreviousDay = (dateString: string): string => {
+    const date = new Date(dateString);
+    date.setDate(date.getDate() - 1);
+    return date.toISOString().split('T')[0];
   };
+
+  const filteredCustomers = customers.filter(customer => {
+    const matchesType = filterType === 'all' || customer.customer_type === filterType;
+    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone_number.includes(searchTerm);
+    return matchesType && matchesSearch;
+  });
 
   const handleUpdateChange = (customerId: string, field: 'delivered' | 'collected' | 'notes', value: string) => {
     setUpdates(prev => {
-      const existing = prev[customerId] || { delivered: '', collected: '', holding_status: 0, notes: '' };
-      const updated = { ...existing, [field]: value };
-  
-      const d = parseInt(updated.delivered as string) || 0;
-      const c = parseInt(updated.collected as string) || 0;
-      const customer = customers.find(cust => cust.customer_id === customerId);
-      const previousHolding = customer?.can_qty || 0;
-  
-      updated.holding_status = previousHolding + d - c;
-  
+      const customerUpdates = prev[customerId] || { delivered: 0, collected: 0, holding_status: 0, notes: '' };
+      let newDelivered = customerUpdates.delivered;
+      let newCollected = customerUpdates.collected;
+
+      if (field === 'delivered') {
+        newDelivered = value === '' ? 0 : parseInt(value, 10);
+      } else if (field === 'collected') {
+        newCollected = value === '' ? 0 : parseInt(value, 10);
+      }
+
+      const deliveredChange = newDelivered - customerUpdates.delivered;
+      const collectedChange = newCollected - customerUpdates.collected;
+      const newHoldingStatus = customerUpdates.holding_status + deliveredChange - collectedChange;
+
       return {
         ...prev,
-        [customerId]: updated,
+        [customerId]: {
+          delivered: newDelivered,
+          collected: newCollected,
+          holding_status: isNaN(newHoldingStatus) ? 0 : newHoldingStatus,
+          notes: field === 'notes' ? value : customerUpdates.notes,
+        },
       };
     });
   };
-  
-  
-  
 
   const handleSaveSingleUpdate = async (customerId: string) => {
     setSavingCustomerId(customerId);
@@ -135,7 +145,7 @@ const DailyUpdate: React.FC = () => {
       date: selectedDate,
       delivered_qty: updates[customerId]?.delivered || 0,
       collected_qty: updates[customerId]?.collected || 0,
-      holding_status: updates[customerId]?.holding_status || 0, // Send holding status
+      holding_status: updates[customerId]?.holding_status || 0,
       notes: updates[customerId]?.notes || '',
     };
 
@@ -154,21 +164,19 @@ const DailyUpdate: React.FC = () => {
       }
 
       toast.success(`Update saved for ${customers.find(c => c.customer_id === customerId)?.name}!`);
-      // Optionally refetch data to update the UI with the saved holding status
-      fetch(`/api/daily-updates?date=${selectedDate}`)
-        .then(res => res.json())
-        .then(data => {
-          const updatedUpdatesMap: Record<string, DailyUpdateState> = {};
-          data.forEach((update: any) => {
-            updatedUpdatesMap[update.customer_id] = {
-              delivered: update.delivered_qty,
-              collected: update.collected_qty,
-              holding_status: update.holding_status,
-              notes: update.notes,
-            };
-          });
-          setUpdates(updatedUpdatesMap);
-        });
+
+      setUpdates((prevUpdates) => {
+        const updatedUpdates = { ...prevUpdates };
+        updatedUpdates[customerId] = {
+          ...updatedUpdates[customerId],
+          delivered: updateData.delivered_qty,
+          collected: updateData.collected_qty,
+          holding_status: updateData.holding_status,
+          notes: updateData.notes,
+        };
+        return updatedUpdates;
+      });
+
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -176,12 +184,9 @@ const DailyUpdate: React.FC = () => {
     }
   };
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesType = filterType === 'all' || customer.customer_type === filterType;
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone_number.includes(searchTerm);
-    return matchesType && matchesSearch;
-  });
+  const getInitialCollectedValue = (customerId: string, customerCanQty: number): number => {
+    return 0;
+  };
 
   if (loading) {
     return <div>Loading daily update data...</div>;
@@ -263,9 +268,6 @@ const DailyUpdate: React.FC = () => {
                     <RefreshCw className="h-3 w-3 text-green-500" />
                   </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Holding
-                </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Notes
                 </th>
@@ -288,39 +290,32 @@ const DailyUpdate: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     {customer.phone_number}
                   </td>
-                 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-  <input
-    type="number"
-    min="0"
-    className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ring-1 ring-gray-300"
-    value={updates[customer.customer_id]?.delivered ?? ''}
-    onChange={(e) => handleUpdateChange(customer.customer_id, 'delivered', e.target.value)}
-  />
-</td>
-<td className="px-6 py-4 whitespace-nowrap text-center">
-  <input
-    type="number"
-    min="0"
-    className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 ring-1 ring-gray-300"
-    value={updates[customer.customer_id]?.collected ?? ''}
-    onChange={(e) => handleUpdateChange(customer.customer_id, 'collected', e.target.value)}
-  />
-</td>
-
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ring-1 ring-gray-300"
+                      value={updates[customer.customer_id]?.delivered !== undefined ? updates[customer.customer_id]?.delivered : customer.can_qty}
+                      onChange={(e) => handleUpdateChange(customer.customer_id, 'delivered', e.target.value)}
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className="text-sm text-gray-700">
-                      {updates[customer.customer_id]?.holding_status !== undefined ? updates[customer.customer_id]?.holding_status : customer.can_qty}
-                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 ring-1 ring-gray-300"
+                      value={updates[customer.customer_id]?.collected !== undefined ? updates[customer.customer_id]?.collected : getInitialCollectedValue(customer.customer_id, customer.can_qty)}
+                      onChange={(e) => handleUpdateChange(customer.customer_id, 'collected', e.target.value)}
+                    />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                  <input
-  type="text"
-  placeholder="Optional"
-  className="w-full border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ring-1 ring-gray-300"
-  value={updates[customer.customer_id]?.notes || ''}
-  onChange={(e) => handleUpdateChange(customer.customer_id, 'notes', e.target.value)}
-/>
+                    <input
+                      type="text"
+                      placeholder="Optional"
+                      className="w-full border-gray-300 rounded-md"
+                      value={updates[customer.customer_id]?.notes || ''}
+                      onChange={(e) => handleUpdateChange(customer.customer_id, 'notes', e.target.value)}
+                    />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <Button
@@ -346,19 +341,6 @@ const DailyUpdate: React.FC = () => {
           </div>
         )}
       </Card>
-
-      {nextDayCollections.length > 0 && (
-        <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Cans to Collect on {new Date(new Date(selectedDate).setDate(new Date(selectedDate).getDate() + 1)).toLocaleDateString()}</h2>
-          <ul>
-            {nextDayCollections.map(collection => (
-              <li key={collection.customer_id} className="py-2">
-                {collection.name}: <span className="font-semibold">{collection.holding_status}</span> cans
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
     </div>
   );
 };

@@ -19,13 +19,12 @@ import toast from 'react-hot-toast';
 
 const Customers: React.FC = () => {
   const navigate = useNavigate();
-  const { getCustomerTypeLabel } = useApp();//CUSTOMERTYPE ICON
-  const [searchTerm, setSearchTerm] = useState('');//SEARCH BAR
-  const [selectedType, setSelectedType] = useState<CustomerType | 'all'>('all');//FILTER BY DEFAULT
-  const [customers, setCustomers] = useState<Customer[]>([]);//GET CUSTOMERS
+  const { getCustomerTypeLabel } = useApp();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedType, setSelectedType] = useState<CustomerType | 'all'>('all');
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true); // Initially loading
   const [error, setError] = useState<string | null>(null);
-  
 
   // Mock data - would come from API in real app
   useEffect(() => {
@@ -121,7 +120,7 @@ if (error) {
                 <option value="all">All Types</option>
                 <option value="shop">Shop</option>
                 <option value="monthly">Monthly</option>
-              
+                <option value="order">Order</option>
               </select>
             </div>
           </div>
@@ -149,9 +148,11 @@ if (error) {
                   Phone
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Advance Amount 
+                  Address
                 </th>
-               
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cans
+                </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
@@ -175,9 +176,11 @@ if (error) {
                     {customer.phone_number}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">
-                    {customer.advance_amount || '-'}
+                    {customer.address}
                   </td>
-                  
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    {customer.can_qty || '-'}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     <div className="flex space-x-2">
                       <button 

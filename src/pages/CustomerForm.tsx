@@ -6,36 +6,15 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { Customer, CustomerType } from '../types';
+import toast from 'react-hot-toast';
 
-const CustomerForm: React.FC = () => {
+interface CustomerFormProps {}
+
+const CustomerForm: React.FC<CustomerFormProps> = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  
   const isEditing = !!id;
-
-  // Mock data for editing - would come from API in real app
-  const mockCustomers: Record<string, Customer> = {
-    '1': {
-      customer_id: '1',
-      name: 'Rajesh Kumar',
-      phone_number: '9876543210',
-      alternate_number: '9876543211',
-      address: '123 Main Street, Mumbai',
-      customer_type: 'shop',
-      can_qty: 15,
-      created_at: '2023-05-15T10:30:00Z'
-    },
-    '2': {
-      customer_id: '2',
-      name: 'Ananya Singh',
-      phone_number: '8765432109',
-      alternate_number: '',
-      address: '456 Park Avenue, Delhi',
-      customer_type: 'monthly',
-      advance_amount: 1000,
-      can_qty: 5,
-      created_at: '2023-06-20T09:15:00Z'
-    }
-  };
 
   const [formData, setFormData] = useState<Partial<Customer>>({
     name: '',
@@ -44,28 +23,46 @@ const CustomerForm: React.FC = () => {
     address: '',
     customer_type: 'shop',
     advance_amount: 0,
-    can_qty: 0
+    can_qty: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isEditing && id && mockCustomers[id]) {
-      setFormData(mockCustomers[id]);
+    const fetchCustomer = async (customerId: string) => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/customers/${customerId}`);
+        if (response.ok) {
+          const data: Customer = await response.json();
+          setFormData(data);
+        } else {
+          toast.error('Failed to fetch customer details for editing.');
+          navigate('/customers'); // Redirect back if fetch fails
+        }
+      } catch (error: any) {
+        toast.error('An unexpected error occurred while fetching customer details.');
+        navigate('/customers');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (isEditing && id) {
+      fetchCustomer(id);
     }
-  }, [isEditing, id]);
+  }, [isEditing, id, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
-    
-    // Convert numeric values
+
     if (type === 'number') {
       setFormData({ ...formData, [name]: value ? parseFloat(value) : undefined });
     } else {
       setFormData({ ...formData, [name]: value });
     }
-    
-    // Clear error for this field if any
+
     if (errors[name]) {
       setErrors({ ...errors, [name]: '' });
     }
@@ -73,48 +70,83 @@ const CustomerForm: React.FC = () => {
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.name) newErrors.name = 'Name is required';
     if (!formData.phone_number) {
       newErrors.phone_number = 'Phone number is required';
     } else if (!/^\d{10}$/.test(formData.phone_number)) {
       newErrors.phone_number = 'Phone number must be 10 digits';
     }
-    
+
     if (!formData.address) newErrors.address = 'Address is required';
     if (!formData.customer_type) newErrors.customer_type = 'Customer type is required';
-    
-    // Type-specific validations
-    if (formData.customer_type === 'monthly' || formData.customer_type === 'shop') {
-      if (formData.can_qty === undefined || formData.can_qty < 0) {
-        newErrors.can_qty = 'Initial can quantity is required';
-      }
+
+    if ((formData.customer_type === 'monthly' || formData.customer_type === 'shop') && (formData.can_qty === undefined || formData.can_qty < 0)) {
+      newErrors.can_qty = 'Initial can quantity is required';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (validate()) {
-      // Here you would send the data to your API
-      console.log('Submitting customer data:', formData);
-      
-      // Redirect back to customers list
+
+  const handleBackButtonClick = () => {
+    if (location.state?.fromDashboard) {
+      navigate('/dashboard');
+    } else {
       navigate('/customers');
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (validate()) {
+      setLoading(true);
+      try {
+        const url = isEditing ? `/api/customers/${id}` : '/api/customers';
+        const method = isEditing ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          toast.success(isEditing ? 'Customer updated successfully!' : 'Customer added successfully!');
+          navigate('/customers'); // Redirect to the customer list
+          console.log('Success:', data);
+        } else {
+          const errorData = await response.json();
+          toast.error(errorData?.error || `Failed to ${isEditing ? 'update' : 'save'} customer.`);
+          console.error(`Failed to ${isEditing ? 'update' : 'save'} customer:`, errorData);
+        }
+      } catch (error: any) {
+        toast.error('An unexpected error occurred.');
+        console.error('Error saving/updating customer:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  if (loading && isEditing) {
+    return <div>Loading customer details...</div>; // Or a more visually appealing loader
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center">
-        <Button 
-          variant="secondary" 
-          icon={<ArrowLeft size={16} />} 
+        <Button
+          variant="secondary"
+          icon={<ArrowLeft size={16} />}
           className="mr-4"
           onClick={() => navigate('/customers')}
+          
         >
           Back
         </Button>
@@ -123,8 +155,8 @@ const CustomerForm: React.FC = () => {
             {isEditing ? 'Edit Customer' : 'Add New Customer'}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            {isEditing 
-              ? 'Update customer information' 
+            {isEditing
+              ? 'Update customer information'
               : 'Create a new customer record'
             }
           </p>
@@ -143,7 +175,6 @@ const CustomerForm: React.FC = () => {
               error={errors.name}
               required
             />
-            
             <Select
               label="Customer Type"
               id="customer_type"
@@ -153,12 +184,10 @@ const CustomerForm: React.FC = () => {
               options={[
                 { value: 'shop', label: 'Shop' },
                 { value: 'monthly', label: 'Monthly' },
-                { value: 'order', label: 'Order' }
               ]}
               error={errors.customer_type}
               required
             />
-            
             <Input
               label="Phone Number"
               id="phone_number"
@@ -169,7 +198,6 @@ const CustomerForm: React.FC = () => {
               helper="10-digit mobile number"
               required
             />
-            
             <Input
               label="Alternate Number (Optional)"
               id="alternate_number"
@@ -178,7 +206,6 @@ const CustomerForm: React.FC = () => {
               onChange={handleChange}
               helper="Secondary contact number"
             />
-            
             <div className="md:col-span-2">
               <Input
                 label="Address"
@@ -190,8 +217,9 @@ const CustomerForm: React.FC = () => {
                 required
               />
             </div>
-            
-            {(formData.customer_type === 'monthly' || formData.customer_type === 'shop') && (
+
+            {(formData.customer_type === 'monthly' ||
+              formData.customer_type === 'shop') && (
               <>
                 <Input
                   label="Initial Can Quantity"
@@ -204,37 +232,30 @@ const CustomerForm: React.FC = () => {
                   error={errors.can_qty}
                   required
                 />
-                
-                {formData.customer_type === 'monthly' && (
-                  <Input
-                    label="Advance Amount (₹)"
-                    id="advance_amount"
-                    name="advance_amount"
-                    type="number"
-                    min="0"
-                    value={formData.advance_amount?.toString() || ''}
-                    onChange={handleChange}
-                    error={errors.advance_amount}
-                  />
-                )}
+                <Input
+                  label="Advance Amount (₹)"
+                  id="advance_amount"
+                  name="advance_amount"
+                  type="number"
+                  min="0"
+                  value={formData.advance_amount?.toString() || ''}
+                  onChange={handleChange}
+                  error={errors.advance_amount}
+                />
               </>
             )}
           </div>
-          
+
           <div className="flex justify-end">
-            <Button 
-              type="button" 
-              variant="secondary" 
+            <Button
+              type="button"
+              variant="secondary"
               className="mr-3"
               onClick={() => navigate('/customers')}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              variant="primary"
-              icon={<Save size={16} />}
-            >
+            <Button type="submit" variant="primary" icon={<Save size={16} />}>
               {isEditing ? 'Update Customer' : 'Save Customer'}
             </Button>
           </div>
