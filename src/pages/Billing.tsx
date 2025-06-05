@@ -1,164 +1,165 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CreditCard, Search, Filter, Download, Calendar } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { Customer } from '../types';
+import toast from 'react-hot-toast';
 
 const Billing: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [bills, setBills] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data reflecting the structure of the physical card
-  const mockBills = [
-    {
-      bill_id: 'apr-2025-1',
-      customer: {
-        customer_id: 'cust-1',
-        name: 'Customer Name 1',
-        phone_number: 'XXXXXXXXXX',
-        customer_type: 'monthly',
-      } as Customer,
-      bill_month: '2025-04',
-      can_qty: 15, // Example total
-      bill_amount: 450, // Example total amount
-      paid_status: false,
-      sent_status: true,
-      deliveries: [
-        { date: 1, qty: 1, signature: '...' },
-        { date: 3, qty: 1, signature: '...' },
-        { date: 5, qty: 1, signature: '...' },
-        { date: 7, qty: 1, signature: '...' },
-        { date: 9, qty: 1, signature: '...' },
-        { date: 11, qty: 1, signature: '...' },
-        { date: 13, qty: 1, signature: '...' },
-        { date: 15, qty: 1, signature: '...' },
-        { date: 17, qty: 1, signature: '...' },
-        { date: 19, qty: 1, signature: '...' },
-        { date: 21, qty: 1, signature: '...' },
-        { date: 23, qty: 1, signature: '...' },
-        { date: 25, qty: 1, signature: '...' },
-        { date: 27, qty: 1, signature: '...' },
-        { date: 29, qty: 1, signature: '...' },
-      ],
-    },
-    {
-      bill_id: 'apr-2025-2',
-      customer: {
-        customer_id: 'cust-2',
-        name: 'Another Customer',
-        phone_number: 'YYYYYYYYYY',
-        customer_type: 'shop',
-      } as Customer,
-      bill_month: '2025-04',
-      can_qty: 20,
-      bill_amount: 600,
-      paid_status: true,
-      sent_status: true,
-      deliveries: [
-        { date: 2, qty: 1, signature: '...' },
-        { date: 4, qty: 1, signature: '...' },
-        { date: 6, qty: 1, signature: '...' },
-        { date: 8, qty: 1, signature: '...' },
-        { date: 10, qty: 1, signature: '...' },
-        { date: 12, qty: 1, signature: '...' },
-        { date: 14, qty: 1, signature: '...' },
-        { date: 16, qty: 1, signature: '...' },
-        { date: 18, qty: 1, signature: '...' },
-        { date: 20, qty: 1, signature: '...' },
-        { date: 22, qty: 1, signature: '...' },
-        { date: 24, qty: 1, signature: '...' },
-        { date: 26, qty: 1, signature: '...' },
-        { date: 28, qty: 1, signature: '...' },
-        { date: 30, qty: 1, signature: '...' },
-        { date: 30, qty: 1, signature: '...' }, // Example of multiple on one day
-      ],
-    },
-    // Add more mock bill data for different months and customers
-  ];
+  useEffect(() => {
+    fetchMonthlyBills(selectedMonth);
+  }, [selectedMonth]);
 
-  const filteredBills = mockBills.filter((bill) => bill.bill_month === selectedMonth);
-
-  const openLedger = (bill: typeof mockBills[0]) => {
-    const ledgerWindow = window.open('', '_blank');
-    if (!ledgerWindow) return;
-
-    const [year, month] = bill.bill_month.split('-');
-    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
-    const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' });
-
-    const calendarHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Customer Ledger - ${bill.customer.name} (${monthName} ${year})</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-      </head>
-      <body class="bg-gray-50 p-8">
-        <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-sm p-6">
-          <h1 class="text-xl font-bold text-gray-900 mb-4">Customer Ledger</h1>
-          <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <p class="text-sm text-gray-500">Customer Name</p>
-              <p class="font-medium">${bill.customer.name}</p>
-            </div>
-            <div>
-              <p class="text-sm text-gray-500">Phone Number</p>
-              <p class="font-medium">${bill.customer.phone_number}</p>
-            </div>
-            <div>
-              <p class="text-sm text-gray-500">Month</p>
-              <p class="font-medium">${monthName} ${year}</p>
-            </div>
-          </div>
-
-          <h2 class="text-lg font-semibold mb-2">Delivery Record</h2>
-          <table class="w-full border-collapse border border-gray-200">
-            <thead>
-              <tr class="bg-gray-100">
-                <th class="border border-gray-200 px-4 py-2 text-left">Date</th>
-                <th class="border border-gray-200 px-4 py-2 text-center">Qty</th>
-                <th class="border border-gray-200 px-4 py-2 text-left">Signature</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${Array.from({ length: 31 }, (_, i) => i + 1)
-                .map((day) => {
-                  const deliveriesOnDay = bill.deliveries.filter(d => d.date === day);
-                  const totalQtyOnDay = deliveriesOnDay.reduce((sum, d) => sum + d.qty, 0);
-                  const signature = deliveriesOnDay.length > 0 ? deliveriesOnDay[0].signature : ''; // Just take the first signature if multiple
-
-                  return `
-                    <tr class="${deliveriesOnDay.length > 0 ? 'bg-green-50' : ''}">
-                      <td class="border border-gray-200 px-4 py-2">${day}</td>
-                      <td class="border border-gray-200 px-4 py-2 text-center">${totalQtyOnDay > 0 ? totalQtyOnDay : ''}</td>
-                      <td class="border border-gray-200 px-4 py-2">${signature}</td>
-                    </tr>
-                  `;
-                })
-                .join('')}
-              <tr class="font-semibold">
-                <td class="border border-gray-200 px-4 py-2">Total</td>
-                <td class="border border-gray-200 px-4 py-2 text-center">${bill.can_qty}</td>
-                <td class="border border-gray-200 px-4 py-2"></td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="mt-4 text-sm text-gray-600">
-            <h3 class="font-semibold">Notes:</h3>
-            <ul>
-              <li>प्रतिमाह 12 केन लेना अनिवार्य है। (Taking 12 cans per month is mandatory.)</li>
-              <li>बगैर कार्ड के पेमेंट मान्य नहीं होगा। (Payment will not be valid without the card.)</li>
-              <li>केन 1 दिन से अधिक रखने पर प्रतिदिन 10 रुपये चार्ज लगेगा। (A charge of ₹10 per day will be levied for keeping a can for more than 1 day.)</li>
-            </ul>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    ledgerWindow.document.write(calendarHTML);
+  const fetchMonthlyBills = async (month: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/daily-updates/monthly-bills?month=${month}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch bills');
+      }
+      const data = await response.json();
+      setBills(data);
+    } catch (err: any) {
+      setError(err.message);
+      toast.error('Failed to fetch bills');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const openLedger = async (bill: any) => {
+    try {
+      // Fetch current prices
+      const pricesResponse = await fetch('/api/settings/prices');
+      if (!pricesResponse.ok) {
+        throw new Error('Failed to fetch prices');
+      }
+      const prices = await pricesResponse.json();
+      const currentPrice = prices[0];
+
+      const response = await fetch(`/api/daily-updates/ledger?customer_id=${bill.customer_id}&month=${selectedMonth}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch ledger data');
+      }
+      const ledgerData = await response.json();
+      
+      const ledgerWindow = window.open('', '_blank');
+      if (!ledgerWindow) return;
+
+      const [year, month] = selectedMonth.split('-');
+      const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' });
+
+      // Get price based on customer type
+      const pricePerCan = bill.customer_type === 'shop' ? currentPrice.shop_price :
+                         bill.customer_type === 'monthly' ? currentPrice.monthly_price :
+                         currentPrice.order_price;
+
+      const calendarHTML = `
+      <!DOCTYPE html>
+<html>
+<head>
+  <title>Customer Ledger - ${bill.name} (${monthName} ${year})</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white p-4">
+  <div class="max-w-xl mx-auto border border-black p-4">
+    <!-- Header -->
+    <div class="flex justify-between items-center border-b border-black pb-2 mb-2">
+      <div class="text-left text-xs">
+        <div class="font-bold text-blue-900 text-lg">कंचन मिनरल वाटर</div>
+        <div>5, लेबर कॉलोनी, नई आबादी, मंदसौर</div>
+        <div>Ph.: 07422-408555 Mob.: 9425033995</div>
+      </div>
+      <div class="text-center text-xs">
+        <div class="font-bold text-blue-900 text-lg">कंचन चिल्ड वाटर</div>
+        <div>साई मंदिर के पास, अभिनन्दन नगर, मंदसौर</div>
+        <div>Mob.: 9685753343, 9516784779</div>
+      </div>
+    </div>
+
+    <!-- Customer Info -->
+    <div class="grid grid-cols-2 text-sm border-b border-black pb-1 mb-2">
+      <div>मो.: ${bill.phone_number}</div>
+      <div class="text-right">दिनांक: ${monthName} ${year}</div>
+      <div class="col-span-2">श्रीमान: ${bill.name}</div>
+    </div>
+
+    <!-- Delivery Record Table -->
+    <table class="w-full text-xs border border-black border-collapse">
+      <thead>
+        <tr>
+          <th class="border border-black p-1">क्र.</th>
+          <th class="border border-black p-1">संख्या</th>
+          <th class="border border-black p-1">केन वापसी</th>
+          <th class="border border-black p-1">हस्ताक्षर</th>
+          <th class="border border-black p-1">क्र.</th>
+          <th class="border border-black p-1">संख्या</th>
+          <th class="border border-black p-1">केन वापसी</th>
+          <th class="border border-black p-1">हस्ताक्षर</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${Array.from({ length: 16 }, (_, i) => {
+          const left = ledgerData[i];
+          const right = ledgerData[i + 16];
+          return `
+          <tr>
+            <td class="border border-black p-1 text-center">${i + 1}</td>
+            <td class="border border-black p-1 text-center">${left ? left.delivered_qty : ''}</td>
+            <td class="border border-black p-1"></td>
+            <td class="border border-black p-1"></td>
+            <td class="border border-black p-1 text-center">${i + 17}</td>
+            <td class="border border-black p-1 text-center">${right ? right.delivered_qty : ''}</td>
+            <td class="border border-black p-1"></td>
+            <td class="border border-black p-1"></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+
+    <!-- Total and Notes -->
+    <div class="flex justify-between items-center border-t border-black mt-2 pt-1 text-sm">
+      <div class="text-xs">
+        <div>नोट: प्रति माह 12 केन लेना अनिवार्य है।</div>
+        <div>* अगर कार्ड के पोस्ट मान्य नहीं होगा।</div>
+        <div>* केन 1 दिन से अधिक रखने पर प्रति दिन 10 रुपये चार्ज लगेगा।</div>
+      </div>
+      <div class="text-right font-bold border border-black px-2 py-1 text-xs">
+        <div>कुल केन: ${ledgerData.reduce((sum: number, d: { delivered_qty: any; }) => sum + Number(d.delivered_qty), 0)}</div>
+        <div>कुल राशि: ₹${ledgerData.reduce((sum: number, d: { delivered_qty: any; }) => sum + Number(d.delivered_qty), 0) * pricePerCan}</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+      `;
+
+      ledgerWindow.document.write(calendarHTML);
+    } catch (err) {
+      toast.error('Failed to fetch ledger data');
+    }
+  };
+
+  const filteredBills = bills.filter(bill => {
+    const matchesSearch = bill.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         bill.phone_number.includes(searchTerm);
+    const matchesStatus = filterStatus === 'all' || 
+                         (filterStatus === 'paid' && bill.paid_status) ||
+                         (filterStatus === 'unpaid' && !bill.paid_status);
+    return matchesSearch && matchesStatus;
+  });
+
+  if (loading) {
+    return <div>Loading billing data...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -186,6 +187,8 @@ const Billing: React.FC = () => {
               type="text"
               placeholder="Search bills..."
               className="pl-10 pr-3 py-2 w-full border-gray-300 rounded-md"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
@@ -210,6 +213,8 @@ const Billing: React.FC = () => {
               </div>
               <select
                 className="pl-10 pr-3 py-2 w-full border-gray-300 rounded-md"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'paid' | 'unpaid')}
               >
                 <option value="all">All Status</option>
                 <option value="paid">Paid</option>
@@ -235,10 +240,13 @@ const Billing: React.FC = () => {
                   Customer
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Month
+                  Type
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total Cans
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Delivery Days
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
@@ -253,18 +261,21 @@ const Billing: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredBills.map((bill) => (
-                <tr key={bill.bill_id} className="hover:bg-gray-50">
+                <tr key={bill.customer_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="font-medium text-gray-900">{bill.customer.name}</div>
-                      <div className="text-sm text-gray-500">{bill.customer.phone_number}</div>
+                      <div className="font-medium text-gray-900">{bill.name}</div>
+                      <div className="text-sm text-gray-500">{bill.phone_number}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {bill.bill_month}
+                    {bill.customer_type}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {bill.can_qty}
+                    {bill.total_cans_delivered}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    {bill.total_delivery_days}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     ₹{bill.bill_amount}

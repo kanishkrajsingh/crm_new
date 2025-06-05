@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect,} from 'react';
 import { Save } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { CustomerType } from '../types';
+import toast from 'react-hot-toast';
 
 interface PriceSettings {
   shop: number;
@@ -24,6 +25,33 @@ const Settings: React.FC = () => {
     'above_10km': 100
   });
 
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchPrices();
+  }, []);
+
+  const fetchPrices = async () => {
+    try {
+      const response = await fetch('/api/settings/prices');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.length > 0) {
+          setPrices({
+            shop: data[0].shop_price,
+            monthly: data[0].monthly_price,
+            order: data[0].order_price
+          });
+        }
+      } else {
+        toast.error('Failed to fetch prices');
+      }
+    } catch (error) {
+      console.error('Error fetching prices:', error);
+      toast.error('Error loading prices');
+    }
+  };
+
   const handlePriceChange = (type: CustomerType, value: string) => {
     const numValue = value === '' ? 0 : parseFloat(value);
     setPrices(prev => ({
@@ -40,13 +68,30 @@ const Settings: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
-    // Here you would send the data to your API
-    console.log('Updating price settings:', { prices, deliveryCharges });
-    
-    // Show success message, etc.
+    try {
+      const response = await fetch('/api/settings/prices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(prices),
+      });
+
+      if (response.ok) {
+        toast.success('Prices updated successfully');
+      } else {
+        throw new Error('Failed to update prices');
+      }
+    } catch (error) {
+      console.error('Error updating prices:', error);
+      toast.error('Failed to update prices');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -108,6 +153,7 @@ const Settings: React.FC = () => {
                 type="submit" 
                 variant="primary"
                 icon={<Save size={16} />}
+                loading={loading}
               >
                 Save Pricing
               </Button>

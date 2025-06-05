@@ -1,272 +1,172 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CreditCard, Search, Filter, Download, Calendar } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { Customer } from '../types';
+import toast from 'react-hot-toast';
 
 const Billing: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [bills, setBills] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data with January to April entries
-  const mockBills = [
-    // January Bills
-    {
-      bill_id: 'jan-1',
-      customer: {
-        customer_id: '1',
-        name: 'Rajesh Kumar',
-        phone_number: '9876543210',
-        customer_type: 'shop'
-      } as Customer,
-      bill_month: '2024-01',
-      can_qty: 62,
-      bill_amount: 1860,
-      paid_status: true,
-      sent_status: true,
-      delivery_days: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30] // Regular delivery pattern
-    },
-    {
-      bill_id: 'jan-2',
-      customer: {
-        customer_id: '2',
-        name: 'Ananya Singh',
-        phone_number: '8765432109',
-        customer_type: 'monthly'
-      } as Customer,
-      bill_month: '2024-01',
-      can_qty: 31,
-      bill_amount: 775,
-      paid_status: true,
-      sent_status: true,
-      delivery_days: [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31] // Daily delivery
-    },
+  useEffect(() => {
+    fetchMonthlyBills(selectedMonth);
+  }, [selectedMonth]);
 
-    // February Bills
-    {
-      bill_id: 'feb-1',
-      customer: {
-        customer_id: '1',
-        name: 'Rajesh Kumar',
-        phone_number: '9876543210',
-        customer_type: 'shop'
-      } as Customer,
-      bill_month: '2024-02',
-      can_qty: 40,
-      bill_amount: 1200,
-      paid_status: true,
-      sent_status: true,
-      delivery_days: [1, 5, 9, 13, 17, 21, 25, 29] // Less frequent deliveries
-    },
-    {
-      bill_id: 'feb-2',
-      customer: {
-        customer_id: '2',
-        name: 'Ananya Singh',
-        phone_number: '8765432109',
-        customer_type: 'monthly'
-      } as Customer,
-      bill_month: '2024-02',
-      can_qty: 28,
-      bill_amount: 700,
-      paid_status: true,
-      sent_status: true,
-      delivery_days: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28] // Regular pattern
-    },
-
-    // March Bills
-    {
-      bill_id: 'mar-1',
-      customer: {
-        customer_id: '1',
-        name: 'Rajesh Kumar',
-        phone_number: '9876543210',
-        customer_type: 'shop'
-      } as Customer,
-      bill_month: '2024-03',
-      can_qty: 45,
-      bill_amount: 1350,
-      paid_status: false,
-      sent_status: true,
-      delivery_days: [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31]
-    },
-    {
-      bill_id: 'mar-2',
-      customer: {
-        customer_id: '2',
-        name: 'Ananya Singh',
-        phone_number: '8765432109',
-        customer_type: 'monthly'
-      } as Customer,
-      bill_month: '2024-03',
-      can_qty: 30,
-      bill_amount: 750,
-      paid_status: true,
-      sent_status: true,
-      delivery_days: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
-    },
-
-    // April Bills
-    {
-      bill_id: 'apr-1',
-      customer: {
-        customer_id: '1',
-        name: 'Rajesh Kumar',
-        phone_number: '9876543210',
-        customer_type: 'shop'
-      } as Customer,
-      bill_month: '2024-04',
-      can_qty: 50,
-      bill_amount: 1500,
-      paid_status: false,
-      sent_status: false,
-      delivery_days: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] // High frequency start of month
-    },
-    {
-      bill_id: 'apr-2',
-      customer: {
-        customer_id: '2',
-        name: 'Ananya Singh',
-        phone_number: '8765432109',
-        customer_type: 'monthly'
-      } as Customer,
-      bill_month: '2024-04',
-      can_qty: 25,
-      bill_amount: 625,
-      paid_status: false,
-      sent_status: true,
-      delivery_days: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20] // Partial month
-    },
-    {
-      bill_id: 'apr-3',
-      customer: {
-        customer_id: '3',
-        name: 'Priya Sharma',
-        phone_number: '7654321098',
-        customer_type: 'monthly'
-      } as Customer,
-      bill_month: '2024-04',
-      can_qty: 15,
-      bill_amount: 375,
-      paid_status: true,
-      sent_status: true,
-      delivery_days: [1, 3, 5, 7, 9, 11, 13, 15, 17, 19] // New customer
+  const fetchMonthlyBills = async (month: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/daily-updates/monthly-bills?month=${month}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch bills');
+      }
+      const data = await response.json();
+      setBills(data);
+    } catch (err: any) {
+      setError(err.message);
+      toast.error('Failed to fetch bills');
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const filteredBills = mockBills.filter(bill => bill.bill_month === selectedMonth);
-
-  const openLedger = (bill: typeof mockBills[0]) => {
-    // Create a new window for the ledger
-    const ledgerWindow = window.open('', '_blank');
-    if (!ledgerWindow) return;
-
-    const [year, month] = bill.bill_month.split('-');
-    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
-    const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' });
-
-    // Generate calendar HTML
-    const calendarHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Customer Ledger - ${bill.customer.name}</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-      </head>
-      <body class="bg-gray-50 p-8">
-        <div class="max-w-4xl mx-auto">
-          <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <h1 class="text-2xl font-bold text-gray-900 mb-2">Customer Ledger</h1>
-            <div class="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <p class="text-sm text-gray-500">Customer Name</p>
-                <p class="font-medium">${bill.customer.name}</p>
-              </div>
-              <div>
-                <p class="text-sm text-gray-500">Phone Number</p>
-                <p class="font-medium">${bill.customer.phone_number}</p>
-              </div>
-              <div>
-                <p class="text-sm text-gray-500">Month</p>
-                <p class="font-medium">${monthName} ${year}</p>
-              </div>
-              <div>
-                <p class="text-sm text-gray-500">Total Cans</p>
-                <p class="font-medium">${bill.can_qty}</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-lg font-semibold mb-4">Delivery Calendar</h2>
-            <div class="grid grid-cols-7 gap-2 mb-2">
-              ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-                .map(day => `<div class="text-center text-sm font-medium text-gray-500">${day}</div>`)
-                .join('')}
-            </div>
-            <div class="grid grid-cols-7 gap-2">
-              ${Array.from({ length: daysInMonth }, (_, i) => i + 1)
-                .map(day => `
-                  <div class="aspect-square flex items-center justify-center rounded-lg ${
-                    bill.delivery_days.includes(day)
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }">
-                    ${day}
-                  </div>
-                `)
-                .join('')}
-            </div>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-sm p-6">
-            <h2 class="text-lg font-semibold mb-4">Bill Details</h2>
-            <table class="w-full">
-              <thead>
-                <tr class="border-b">
-                  <th class="text-left py-2">Date</th>
-                  <th class="text-center py-2">Cans Delivered</th>
-                  <th class="text-right py-2">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${bill.delivery_days
-                  .map(
-                    day => `
-                    <tr class="border-b">
-                      <td class="py-2">${day} ${monthName} ${year}</td>
-                      <td class="text-center">1</td>
-                      <td class="text-right">₹30</td>
-                    </tr>
-                  `
-                  )
-                  .join('')}
-                <tr class="font-semibold">
-                  <td class="py-2">Total</td>
-                  <td class="text-center">${bill.can_qty}</td>
-                  <td class="text-right">₹${bill.bill_amount}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="mt-6 flex justify-end">
-              <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" onclick="window.print()">
-                Generate Bill
-              </button>
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    ledgerWindow.document.write(calendarHTML);
   };
+
+  const openLedger = async (bill: any) => {
+    try {
+      // Fetch current prices
+      const pricesResponse = await fetch('/api/settings/prices');
+      if (!pricesResponse.ok) {
+        throw new Error('Failed to fetch prices');
+      }
+      const prices = await pricesResponse.json();
+      const currentPrice = prices[0];
+
+      const response = await fetch(`/api/daily-updates/ledger?customer_id=${bill.customer_id}&month=${selectedMonth}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch ledger data');
+      }
+      const ledgerData = await response.json();
+      
+      const ledgerWindow = window.open('', '_blank');
+      if (!ledgerWindow) return;
+
+      const [year, month] = selectedMonth.split('-');
+      const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' });
+
+      // Get price based on customer type
+      const pricePerCan = bill.customer_type === 'shop' ? currentPrice.shop_price :
+                         bill.customer_type === 'monthly' ? currentPrice.monthly_price :
+                         currentPrice.order_price;
+
+      const calendarHTML = `
+      <!DOCTYPE html>
+<html>
+<head>
+  <title>Customer Ledger - ${bill.name} (${monthName} ${year})</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white p-4">
+  <div class="max-w-xl mx-auto border border-black p-4">
+    <!-- Header -->
+    <div class="flex justify-between items-center border-b border-black pb-2 mb-2">
+      <div class="text-left text-xs">
+        <div class="font-bold text-blue-900 text-lg">कंचन मिनरल वाटर</div>
+        <div>5, लेबर कॉलोनी, नई आबादी, मंदसौर</div>
+        <div>Ph.: 07422-408555 Mob.: 9425033995</div>
+      </div>
+      <div class="text-center text-xs">
+        <div class="font-bold text-blue-900 text-lg">कंचन चिल्ड वाटर</div>
+        <div>साई मंदिर के पास, अभिनन्दन नगर, मंदसौर</div>
+        <div>Mob.: 9685753343, 9516784779</div>
+      </div>
+    </div>
+
+    <!-- Customer Info -->
+    <div class="grid grid-cols-2 text-sm border-b border-black pb-1 mb-2">
+      <div>मो.: ${bill.phone_number}</div>
+      <div class="text-right">दिनांक: ${monthName} ${year}</div>
+      <div class="col-span-2">श्रीमान: ${bill.name}</div>
+    </div>
+
+    <!-- Delivery Record Table -->
+    <table class="w-full text-xs border border-black border-collapse">
+      <thead>
+        <tr>
+          <th class="border border-black p-1">क्र.</th>
+          <th class="border border-black p-1">संख्या</th>
+          <th class="border border-black p-1">केन वापसी</th>
+          <th class="border border-black p-1">हस्ताक्षर</th>
+          <th class="border border-black p-1">क्र.</th>
+          <th class="border border-black p-1">संख्या</th>
+          <th class="border border-black p-1">केन वापसी</th>
+          <th class="border border-black p-1">हस्ताक्षर</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${Array.from({ length: 16 }, (_, i) => {
+          const left = ledgerData[i];
+          const right = ledgerData[i + 16];
+          return `
+          <tr>
+            <td class="border border-black p-1 text-center">${i + 1}</td>
+            <td class="border border-black p-1 text-center">${left ? left.delivered_qty : ''}</td>
+            <td class="border border-black p-1"></td>
+            <td class="border border-black p-1"></td>
+            <td class="border border-black p-1 text-center">${i + 17}</td>
+            <td class="border border-black p-1 text-center">${right ? right.delivered_qty : ''}</td>
+            <td class="border border-black p-1"></td>
+            <td class="border border-black p-1"></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+
+    <!-- Total and Notes -->
+    <div class="flex justify-between items-center border-t border-black mt-2 pt-1 text-sm">
+      <div class="text-xs">
+        <div>नोट: प्रति माह 12 केन लेना अनिवार्य है।</div>
+        <div>* अगर कार्ड के पोस्ट मान्य नहीं होगा।</div>
+        <div>* केन 1 दिन से अधिक रखने पर प्रति दिन 10 रुपये चार्ज लगेगा।</div>
+      </div>
+      <div class="text-right font-bold border border-black px-2 py-1 text-xs">
+        <div>कुल केन: ${ledgerData.reduce((sum: number, d: { delivered_qty: any; }) => sum + Number(d.delivered_qty), 0)}</div>
+        <div>कुल राशि: ₹${ledgerData.reduce((sum: number, d: { delivered_qty: any; }) => sum + Number(d.delivered_qty), 0) * pricePerCan}</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+      `;
+
+      ledgerWindow.document.write(calendarHTML);
+    } catch (err) {
+      toast.error('Failed to fetch ledger data');
+    }
+  };
+
+  const filteredBills = bills.filter(bill => {
+    const matchesSearch = bill.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         bill.phone_number.includes(searchTerm);
+    const matchesStatus = filterStatus === 'all' || 
+                         (filterStatus === 'paid' && bill.paid_status) ||
+                         (filterStatus === 'unpaid' && !bill.paid_status);
+    return matchesSearch && matchesStatus;
+  });
+
+  if (loading) {
+    return <div>Loading billing data...</div>;
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
-          <p className="mt-1 text-sm text-gray-500">Manage customer bills and payments</p>
+          <p className="mt-1 text-sm text-gray-500">Manage customer bills and track deliveries</p>
         </div>
         <Button
           variant="primary"
@@ -287,6 +187,8 @@ const Billing: React.FC = () => {
               type="text"
               placeholder="Search bills..."
               className="pl-10 pr-3 py-2 w-full border-gray-300 rounded-md"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
@@ -303,7 +205,7 @@ const Billing: React.FC = () => {
               />
             </div>
           </div>
-          
+
           <div className="sm:w-48">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -311,6 +213,8 @@ const Billing: React.FC = () => {
               </div>
               <select
                 className="pl-10 pr-3 py-2 w-full border-gray-300 rounded-md"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'paid' | 'unpaid')}
               >
                 <option value="all">All Status</option>
                 <option value="paid">Paid</option>
@@ -318,7 +222,7 @@ const Billing: React.FC = () => {
               </select>
             </div>
           </div>
-          
+
           <Button
             variant="secondary"
             icon={<Download size={16} />}
@@ -336,10 +240,13 @@ const Billing: React.FC = () => {
                   Customer
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Month
+                  Type
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cans
+                  Total Cans
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Delivery Days
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
@@ -354,18 +261,21 @@ const Billing: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredBills.map((bill) => (
-                <tr key={bill.bill_id} className="hover:bg-gray-50">
+                <tr key={bill.customer_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="font-medium text-gray-900">{bill.customer.name}</div>
-                      <div className="text-sm text-gray-500">{bill.customer.phone_number}</div>
+                      <div className="font-medium text-gray-900">{bill.name}</div>
+                      <div className="text-sm text-gray-500">{bill.phone_number}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {bill.bill_month}
+                    {bill.customer_type}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {bill.can_qty}
+                    {bill.total_cans_delivered}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    {bill.total_delivery_days}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     ₹{bill.bill_amount}
@@ -393,10 +303,10 @@ const Billing: React.FC = () => {
             </tbody>
           </table>
         </div>
-        
+
         {filteredBills.length === 0 && (
           <div className="text-center py-10">
-            <p className="text-gray-500">No bills found matching your criteria.</p>
+            <p className="text-gray-500">No bills found for the selected month.</p>
           </div>
         )}
       </Card>

@@ -1,7 +1,7 @@
 // Node.js with Express (example - adapt to your backend framework)
 const express = require('express');
 const router = express.Router();
-const pool = require('../database'); // Assuming you have a database connection setup using mysql2/promise
+const pool = require('../database');
 
 // Middleware to parse JSON request bodies
 router.use(express.json());
@@ -153,13 +153,41 @@ router.get('/ledger', async (req, res) => {
   }
 
   try {
+    // Get current active prices
+    const [prices] = await pool.query('SELECT * FROM prices WHERE is_active = 1');
+    if (!prices.length) {
+      return res.status(400).json({ error: 'No active prices found' });
+    }
+    const currentPrices = prices[0];
+
+    // Get customer type
+    const [customers] = await pool.execute(
+      'SELECT customer_type FROM customers WHERE customer_id = ?',
+      [customer_id]
+    );
+
+    if (!customers.length) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    const customerType = customers[0].customer_type;
+    const pricePerCan = customerType === 'shop' ? currentPrices.shop_price :
+                       customerType === 'monthly' ? currentPrices.monthly_price :
+                       currentPrices.order_price;
+
     const [rows] = await pool.execute(`
-      SELECT date, delivered_qty, collected_qty, holding_status, notes
+      SELECT 
+        date, 
+        delivered_qty, 
+        collected_qty, 
+        holding_status, 
+        notes,
+        delivered_qty * ? as amount
       FROM daily_updates
       WHERE customer_id = ?
         AND date LIKE ?
       ORDER BY date ASC
-    `, [customer_id, `${month}-%`]);
+    `, [pricePerCan, customer_id, `${month}-%`]);
 
     res.status(200).json(rows);
   } catch (error) {
@@ -168,58 +196,68 @@ router.get('/ledger', async (req, res) => {
   }
 });
 
-
 // GET monthly billing summary for a specific month
 router.get('/monthly-bills', async (req, res) => {
-  const { month } = req.query; // 'YYYY-MM' format
+  const { month } = req.query;
 
   if (!month) {
-      return res.status(400).json({ error: 'Month parameter (YYYY-MM) is required' });
+    return res.status(400).json({ error: 'Month parameter (YYYY-MM) is required' });
   }
 
   try {
-      // SQL query to get monthly delivered quantity per customer
-      // and join with customer details
-      const [rows] = await pool.execute(`
-          SELECT
-              c.customer_id,
-              c.name,
-              c.phone_number,
-              c.customer_type,
-              SUM(du.delivered_qty) AS total_cans_delivered,
-              (SELECT COUNT(*) FROM daily_updates WHERE customer_id = c.customer_id AND date LIKE ? AND delivered_qty > 0) AS total_delivery_days,
-              (SUM(du.delivered_qty) * 30) AS estimated_bill_amount, -- Assuming price per can is 30, adjust as needed
-              (SELECT MIN(paid_status) FROM monthly_bills WHERE customer_id = c.customer_id AND bill_month = ?) AS paid_status, -- Assuming a monthly_bills table
-              (SELECT MIN(sent_status) FROM monthly_bills WHERE customer_id = c.customer_id AND bill_month = ?) AS sent_status -- Assuming a monthly_bills table
-          FROM
-              customers c
-          JOIN
-              daily_updates du ON c.customer_id = du.customer_id
-          WHERE
-              du.date LIKE ? -- Matches 'YYYY-MM-%'
-          GROUP BY
-              c.customer_id, c.name, c.phone_number, c.customer_type
-          HAVING
-              total_cans_delivered > 0 -- Only customers with deliveries in this month
-          ORDER BY
-              c.name ASC;
-      `, [`${month}-%`, month, month, `${month}-%`]); // The month-param needs to be repeated for each LIKE condition
+    // Get current active prices
+    const [prices] = await pool.query('SELECT * FROM prices WHERE is_active = 1');
+    if (!prices.length) {
+      return res.status(400).json({ error: 'No active prices found' });
+    }
+    const currentPrices = prices[0];
 
-      // Mocking paid_status and sent_status for now since you don't have a monthly_bills table yet
-      // In a real scenario, you'd calculate/fetch these from a dedicated 'monthly_bills' table
-      const monthlyBillsWithStatus = rows.map(bill => ({
-          ...bill,
-          bill_month: month,
-          paid_status: Math.random() > 0.5, // Mocking paid status
-          sent_status: Math.random() > 0.5, // Mocking sent status
-          bill_amount: bill.estimated_bill_amount // Use estimated_bill_amount from query
-      }));
+    // SQL query to get monthly delivered quantity per customer with dynamic pricing
+    const [rows] = await pool.execute(`
+      SELECT
+        c.customer_id,
+        c.name,
+        c.phone_number,
+        c.customer_type,
+        SUM(du.delivered_qty) AS total_cans_delivered,
+        (SELECT COUNT(*) 
+         FROM daily_updates 
+         WHERE customer_id = c.customer_id 
+         AND date LIKE ? 
+         AND delivered_qty > 0) AS total_delivery_days,
+        CASE 
+          WHEN c.customer_type = 'shop' THEN SUM(du.delivered_qty) * ?
+          WHEN c.customer_type = 'monthly' THEN SUM(du.delivered_qty) * ?
+          WHEN c.customer_type = 'order' THEN SUM(du.delivered_qty) * ?
+        END AS bill_amount,
+        (SELECT MIN(paid_status) FROM monthly_bills WHERE customer_id = c.customer_id AND bill_month = ?) AS paid_status,
+        (SELECT MIN(sent_status) FROM monthly_bills WHERE customer_id = c.customer_id AND bill_month = ?) AS sent_status
+      FROM
+        customers c
+      JOIN
+        daily_updates du ON c.customer_id = du.customer_id
+      WHERE
+        du.date LIKE ?
+      GROUP BY
+        c.customer_id, c.name, c.phone_number, c.customer_type
+      HAVING
+        total_cans_delivered > 0
+      ORDER BY
+        c.name ASC
+    `, [
+      `${month}-%`,
+      currentPrices.shop_price,
+      currentPrices.monthly_price,
+      currentPrices.order_price,
+      month,
+      month,
+      `${month}-%`
+    ]);
 
-
-      res.status(200).json(monthlyBillsWithStatus);
+    res.status(200).json(rows);
   } catch (error) {
-      console.error('Error fetching monthly billing summary:', error);
-      res.status(500).json({ error: 'Failed to fetch monthly billing summary' });
+    console.error('Error fetching monthly billing summary:', error);
+    res.status(500).json({ error: 'Failed to fetch monthly billing summary' });
   }
 });
 

@@ -5,6 +5,7 @@
     const dashboardRoutes = require('./routes/dashboard.routes');
     const orderRoutes = require('./routes/orders.routes');
     const dailyUpdates = require('./routes/daily-update.routes');
+    const settingsRoutes = require('./routes/settings.routes');
     //const productRoutes = require('./routes/product.routes');
     //const orderRoutes = require('./routes/order.routes');
     const pool = require('./database'); // Import the database connection pool
@@ -30,6 +31,7 @@
     app.use('/api/dashboard', dashboardRoutes);
     app.use('/api/orders', orderRoutes);
     app.use('/api/daily-updates', dailyUpdates);
+    app.use('/api/settings', settingsRoutes);
     //app.use('/api/dashboardRoutes', dashboardRoutes);
 
     //app.use('/api/products', productRoutes);
