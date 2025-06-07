@@ -13,6 +13,11 @@ import Billing from './pages/Billing';
 import Reports from './pages/Reports';
 import CanManagement from './pages/CanManagement';
 import Settings from './pages/Settings';
+import ModalExample from './pages/Modal';
+
+
+
+
 import { AppProvider } from './context/AppContext';
 
 function App() {
@@ -34,6 +39,8 @@ function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="can-management" element={<CanManagement />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="modal" element={<ModalExample />} />
+           
           </Route>
         </Routes>
       </Router>

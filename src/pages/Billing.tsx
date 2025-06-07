@@ -12,6 +12,9 @@ const Billing: React.FC = () => {
   const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedBill, setSelectedBill] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [ledgerHTML, setLedgerHTML] = useState('');
 
   useEffect(() => {
     fetchMonthlyBills(selectedMonth);
@@ -37,6 +40,8 @@ const Billing: React.FC = () => {
 
   const openLedger = async (bill: any) => {
     try {
+      setSelectedBill(bill);
+      setIsModalOpen(true);
       // Fetch current prices
       const pricesResponse = await fetch('/api/settings/prices');
       if (!pricesResponse.ok) {
@@ -51,8 +56,7 @@ const Billing: React.FC = () => {
       }
       const ledgerData = await response.json();
       
-      const ledgerWindow = window.open('', '_blank');
-      if (!ledgerWindow) return;
+    
 
       const [year, month] = selectedMonth.split('-');
       const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' });
@@ -99,11 +103,11 @@ const Billing: React.FC = () => {
           <th class="border border-black p-1">क्र.</th>
           <th class="border border-black p-1">संख्या</th>
           <th class="border border-black p-1">केन वापसी</th>
-          <th class="border border-black p-1">हस्ताक्षर</th>
+     
           <th class="border border-black p-1">क्र.</th>
           <th class="border border-black p-1">संख्या</th>
           <th class="border border-black p-1">केन वापसी</th>
-          <th class="border border-black p-1">हस्ताक्षर</th>
+         
         </tr>
       </thead>
       <tbody>
@@ -115,11 +119,11 @@ const Billing: React.FC = () => {
             <td class="border border-black p-1 text-center">${i + 1}</td>
             <td class="border border-black p-1 text-center">${left ? left.delivered_qty : ''}</td>
             <td class="border border-black p-1"></td>
-            <td class="border border-black p-1"></td>
+          
             <td class="border border-black p-1 text-center">${i + 17}</td>
             <td class="border border-black p-1 text-center">${right ? right.delivered_qty : ''}</td>
             <td class="border border-black p-1"></td>
-            <td class="border border-black p-1"></td>
+         
           </tr>`;
         }).join('')}
       </tbody>
@@ -141,12 +145,14 @@ const Billing: React.FC = () => {
 </body>
 </html>
       `;
-
-      ledgerWindow.document.write(calendarHTML);
+      setLedgerHTML(calendarHTML);
+      setIsModalOpen(true); 
     } catch (err) {
       toast.error('Failed to fetch ledger data');
     }
   };
+    
+
 
   const filteredBills = bills.filter(bill => {
     const matchesSearch = bill.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -293,8 +299,7 @@ const Billing: React.FC = () => {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => openLedger(bill)}
-                    >
+                      onClick={() => openLedger(bill)}                    >
                       View Ledger
                     </Button>
                   </td>
@@ -302,6 +307,21 @@ const Billing: React.FC = () => {
               ))}
             </tbody>
           </table>
+
+          {isModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded shadow-lg p-4 relative">
+      <button
+        onClick={() => setIsModalOpen(false)}
+        className="absolute top-2 right-2 text-gray-600 hover:text-black"
+      >
+        ✖
+      </button>
+      <div dangerouslySetInnerHTML={{ __html: ledgerHTML }} />
+    </div>
+  </div>
+)}
+
         </div>
 
         {filteredBills.length === 0 && (
@@ -312,6 +332,10 @@ const Billing: React.FC = () => {
       </Card>
     </div>
   );
+  
 };
+
+
+
 
 export default Billing;

@@ -26,6 +26,7 @@ const Sidebar: React.FC = () => {
     { path: '/reports', icon: <BarChart3 size={20} />, label: 'Reports' },
     { path: '/can-management', icon: <Package size={20} />, label: 'Can Management' },
     { path: '/settings', icon: <Settings size={20} />, label: 'Settings' },
+      { path: '/modal', icon: <ShoppingBag size={20} />, label: 'Modal Test' },
   ];
 
   return (
