@@ -9,7 +9,7 @@ router.use(express.json());
 // GET all orders
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM orders');
+    const [rows] = await pool.query('SELECT * FROM orders ORDER BY created_at DESC');
     res.status(200).json(rows);
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -42,6 +42,7 @@ router.post('/', async (req, res) => {
     customer_address,
     delivery_amount,
     can_qty,
+    collected_qty,
     delivery_date,
     delivery_time,
     order_status,
@@ -54,8 +55,8 @@ router.post('/', async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      'INSERT INTO orders (order_date, customer_name, customer_phone, customer_address, delivery_amount, can_qty, delivery_date, order_status, notes,delivery_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [order_date, customer_name, customer_phone, customer_address, delivery_amount, can_qty, delivery_date, order_status, notes,delivery_time]
+      'INSERT INTO orders (order_date, customer_name, customer_phone, customer_address, delivery_amount, can_qty, collected_qty, delivery_date, order_status, notes, delivery_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [order_date, customer_name, customer_phone, customer_address, delivery_amount || 0, can_qty, collected_qty || 0, delivery_date, order_status, notes, delivery_time]
     );
 
     const newOrderId = result.insertId;
@@ -77,6 +78,7 @@ router.put('/:id', async (req, res) => {
     customer_address,
     delivery_amount,
     can_qty,
+    collected_qty,
     delivery_date,
     delivery_time,
     order_status,
@@ -90,8 +92,8 @@ router.put('/:id', async (req, res) => {
     }
 
     await pool.query(
-      'UPDATE orders SET order_date = ?, customer_name = ?, customer_phone = ?, customer_address = ?, delivery_amount = ?, can_qty = ?, delivery_date = ?, delivery_time = ?, order_status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [order_date, customer_name, customer_phone, customer_address, delivery_amount, can_qty, delivery_date, delivery_time, order_status, notes, orderId]
+      'UPDATE orders SET order_date = ?, customer_name = ?, customer_phone = ?, customer_address = ?, delivery_amount = ?, can_qty = ?, collected_qty = ?, delivery_date = ?, delivery_time = ?, order_status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [order_date, customer_name, customer_phone, customer_address, delivery_amount || 0, can_qty, collected_qty || 0, delivery_date, delivery_time, order_status, notes, orderId]
     );
 
     const [updatedOrderRows] = await pool.query('SELECT * FROM orders WHERE id = ?', [orderId]);
