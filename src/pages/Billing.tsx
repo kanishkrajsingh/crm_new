@@ -371,7 +371,7 @@ const Billing: React.FC = () => {
                     >
                         {isGeneratingBills ? (
                             <>
-                                <div className="spinner" style={{ border: '3px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', width: '16px', height: '16px', animation: 'spin 1s linear infinite' }}></div>
+                                <div className="spinner\" style={{ border: '3px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', width: '16px', height: '16px', animation: 'spin 1s linear infinite' }}></div>
                                 Generating...
                             </>
                         ) : (
@@ -386,7 +386,7 @@ const Billing: React.FC = () => {
                     >
                         {isSavingBills ? (  
                             <>
-                                <div className="spinner" style={{ border: '3px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', width: '16px', height: '16px', animation: 'spin 1s linear infinite' }}></div>
+                                <div className="spinner\" style={{ border: '3px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', width: '16px', height: '16px', animation: 'spin 1s linear infinite' }}></div>
                                 Saving...
                             </>
                         ) : (
