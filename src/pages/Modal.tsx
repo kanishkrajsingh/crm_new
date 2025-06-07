@@ -1,33 +1,95 @@
-import React, { useState } from "react";
+import React, { useRef } from 'react';
+import jsPDF from 'jspdf';
+import { CreditCard } from 'lucide-react'
+import html2canvas from 'html2canvas';
+import Button from '../components/ui/Button';
 
-const ModalExample = () => {
-  const [isOpen, setIsOpen] = useState(false);
+
+const DownloadPdfDynamic = () => {
+  const contentRef = useRef(null); // Ref to the HTML element you want to convert to PDF
+
+  const generatePdf = async () => {
+    if (!contentRef.current) {
+      console.error("Content ref is not attached to an element.");
+      return;
+    }
+
+    const input = contentRef.current;
+
+    // Use html2canvas to render the HTML content to a canvas
+    const canvas = await html2canvas(input, {
+      scale: 2, // Increase scale for better resolution
+      useCORS: true, // If you have images from other domains
+    });
+
+    // Create a new jsPDF instance
+    const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' for portrait, 'mm' for millimeters, 'a4' for A4 size
+
+    // Calculate dimensions to fit the canvas onto the PDF page
+    const imgData = canvas.toDataURL('image/png');
+    const imgWidth = 210; // A4 width in mm
+    const pageHeight = 297; // A4 height in mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+
+    let position = 0;
+
+    // Add the image to the PDF
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    // If the content is longer than one page, add new pages
+    while (heightLeft >= 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    // Save the PDF
+    pdf.save('dynamic-content.pdf');
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <button
-        onClick={() => setIsOpen(true)}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+    <div>
+    
+    <Button
+          variant="primary"
+          icon={<CreditCard size={16} />}
+          className="mt-3 sm:mt-0"
+          onClick={generatePdf}
+        >
+          Generate Bills
+        </Button>
+      
+      <div
+        ref={contentRef}
+        style={{
+          padding: '20px',
+          border: '1px solid #ccc',
+          marginTop: '20px',
+          backgroundColor: '#f9f9f9',
+        }}
       >
-        Open Modal
-      </button>
-
-      {isOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-            <h2 className="text-xl font-bold mb-4">Modal Title</h2>
-            <p className="mb-4">This is a simple modal content.</p>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+        <h3>Content to be included in the PDF</h3>
+        <p>This is some example text that will be converted into a PDF.</p>
+        <ul>
+          <li>Item 1</li>
+          <li>Item 2</li>
+          <li>Item 3</li>
+        </ul>
+        <p>
+          You can put any HTML content here. Images and complex layouts might require
+          more fine-tuning with `html2canvas` and `jsPDF` options.
+        </p>
+        <img
+          src="https://via.placeholder.com/150" // Example image (ensure it's accessible)
+          alt="Placeholder"
+          style={{ maxWidth: '100%', height: 'auto' }}
+        />
+      </div>
     </div>
   );
 };
 
-export default ModalExample;
+export default DownloadPdfDynamic;

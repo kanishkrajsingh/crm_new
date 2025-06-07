@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+//import DownloadPdfStatic from './DownloadPdfStatic'; // Adjust path as needed
+//import DownloadPdfProgrammatic from './DownloadPdfProgrammatic'; // Adjust path as needed
 
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -13,7 +15,7 @@ import Billing from './pages/Billing';
 import Reports from './pages/Reports';
 import CanManagement from './pages/CanManagement';
 import Settings from './pages/Settings';
-import ModalExample from './pages/Modal';
+import DownloadPdfDynamic  from './pages/Modal';
 
 
 
@@ -22,7 +24,10 @@ import { AppProvider } from './context/AppContext';
 
 function App() {
   return (
+
+    
     <AppProvider>
+       
       <Router>
         <Toaster position="top-right" />
         <Routes>
@@ -39,11 +44,15 @@ function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="can-management" element={<CanManagement />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="modal" element={<ModalExample />} />
+            <Route path="modal" element={<DownloadPdfDynamic  />} />
            
           </Route>
         </Routes>
       </Router>
+
+
+
+     
     </AppProvider>
   );
 }

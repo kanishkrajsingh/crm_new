@@ -1,9 +1,14 @@
+// src/pages/Billing.tsx
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Search, Filter, Download, Calendar } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { Customer } from '../types';
 import toast from 'react-hot-toast';
+
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+
+import PdfLedgerTemplate from '../components/Billing/PdfLedgerTemplate';
 
 const Billing: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -12,7 +17,11 @@ const Billing: React.FC = () => {
   const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [ledgerHTML, setLedgerHTML] = useState('');
+  const [selectedBillForModal, setSelectedBillForModal] = useState<any | null>(null);
+
+  const [isGeneratingBills, setIsGeneratingBills] = useState(false);
 
   useEffect(() => {
     fetchMonthlyBills(selectedMonth);
@@ -36,9 +45,113 @@ const Billing: React.FC = () => {
     }
   };
 
+  const generatePdfForBill = async (bill: any, currentPrice: any) => {
+    let ledgerData = [];
+    try {
+        const response = await fetch(`/api/daily-updates/ledger?customer_id=${bill.customer_id}&month=${selectedMonth}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch ledger data for PDF');
+        }
+        ledgerData = await response.json();
+    } catch (err) {
+        console.error(`Error fetching ledger data for ${bill.name}:`, err);
+        toast.error(`Failed to get ledger for ${bill.name}. Bill might be incomplete.`, { id: `ledger-fetch-${bill.customer_id}` });
+        return null;
+    }
+
+    try {
+      const pdfResponse = await fetch('/generate-bill-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bill: bill,
+          ledgerData: ledgerData,
+          currentPrice: currentPrice,
+          selectedMonth: selectedMonth,
+        }),
+      });
+
+      if (!pdfResponse.ok) {
+        const errorText = await pdfResponse.text();
+        throw new Error(`Server error: ${pdfResponse.status} ${pdfResponse.statusText} - ${errorText}`);
+      }
+
+      return pdfResponse.blob();
+    } catch (error) {
+      console.error("Error generating PDF via backend:", error);
+      throw error;
+    }
+  };
+
+  const handleGenerateAllBills = async () => {
+    setIsGeneratingBills(true);
+    const generationToastId = toast.loading('Preparing to generate bills...');
+
+    try {
+      const pricesResponse = await fetch('/api/settings/prices');
+      if (!pricesResponse.ok) {
+        throw new Error('Failed to fetch prices for bill generation.');
+      }
+      const prices = await pricesResponse.json();
+      const currentPrice = prices[0];
+
+      if (!currentPrice) {
+          toast.error('Current pricing data not found. Cannot generate bills.', { id: generationToastId });
+          setIsGeneratingBills(false);
+          return;
+      }
+
+      const zip = new JSZip();
+      const pdfGenerationPromises = filteredBills.map(async (bill) => {
+        const billToastId = toast.loading(`Generating bill for ${bill.name}...`, { duration: 0 });
+        try {
+          const pdfBlob = await generatePdfForBill(bill, currentPrice);
+          if (pdfBlob) {
+            const filename = `${bill.name.replace(/[^a-zA-Z0-9\s]/g, '').trim().replace(/\s+/g, '-')}-bill.pdf`;
+            zip.file(filename, pdfBlob);
+            toast.success(`Bill generated for ${bill.name}`, { id: billToastId });
+          } else {
+             toast.error(`Could not generate PDF for ${bill.name}.`, { id: billToastId });
+          }
+        } catch (error) {
+          console.error(`Error generating PDF for ${bill.name}:`, error);
+          toast.error(`Failed to generate bill for ${bill.name}.`, { id: billToastId });
+        }
+      });
+
+      await Promise.all(pdfGenerationPromises);
+
+      if (Object.keys(zip.files).length === 0) {
+        toast.error('No PDFs were successfully generated to zip.', { id: generationToastId });
+        setIsGeneratingBills(false);
+        return;
+      }
+
+      const [year, monthNum] = selectedMonth.split('-');
+      const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('default', { month: 'long' });
+      const zipFilename = `${monthName.replace(/[^a-zA-Z0-9]/g, '').trim()}-${year}-bills.zip`;
+
+      toast.loading('Zipping bills...', { id: generationToastId });
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, zipFilename);
+      toast.success('All bills zipped and downloaded!', { id: generationToastId, duration: 3000 });
+
+    } catch (mainError) {
+      console.error('Error in overall bill generation process:', mainError);
+      toast.error(`Error generating all bills: ${mainError instanceof Error ? mainError.message : String(mainError)}`, { id: generationToastId });
+    } finally {
+      setIsGeneratingBills(false);
+    }
+  };
+
+
   const openLedger = async (bill: any) => {
     try {
-      // Fetch current prices
+      setSelectedBillForModal(bill);
+      setIsModalOpen(true);
+
       const pricesResponse = await fetch('/api/settings/prices');
       if (!pricesResponse.ok) {
         throw new Error('Failed to fetch prices');
@@ -51,17 +164,43 @@ const Billing: React.FC = () => {
         throw new Error('Failed to fetch ledger data');
       }
       const ledgerData = await response.json();
-      
-      const ledgerWindow = window.open('', '_blank');
-      if (!ledgerWindow) return;
 
       const [year, month] = selectedMonth.split('-');
       const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' });
 
-      // Get price based on customer type
       const pricePerCan = bill.customer_type === 'shop' ? currentPrice.shop_price :
-                         bill.customer_type === 'monthly' ? currentPrice.monthly_price :
-                         currentPrice.order_price;
+                           bill.customer_type === 'monthly' ? currentPrice.monthly_price :
+                           currentPrice.order_price;
+
+      const totalCans = ledgerData.reduce((sum: number, d: { delivered_qty: any; }) => sum + Number(d.delivered_qty), 0);
+      const totalAmount = totalCans * pricePerCan;
+
+      // Prepare ledger entries for display in two columns
+      const totalDaysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const leftColumnLength = Math.ceil(totalDaysInMonth / 2);
+      const rightColumnLength = totalDaysInMonth - leftColumnLength;
+
+      let ledgerRows = '';
+      for (let i = 0; i < leftColumnLength; i++) {
+        const dateLeft = i + 1;
+        const ledgerEntryLeft = ledgerData.find((entry: any) => new Date(entry.delivery_date).getDate() === dateLeft);
+        const deliveredQtyLeft = ledgerEntryLeft ? ledgerEntryLeft.delivered_qty : '';
+
+        const dateRight = leftColumnLength + i + 1;
+        const ledgerEntryRight = ledgerData.find((entry: any) => new Date(entry.delivery_date).getDate() === dateRight);
+        const deliveredQtyRight = dateRight <= totalDaysInMonth ? (ledgerEntryRight ? ledgerEntryRight.delivered_qty : '') : '';
+
+        ledgerRows += `
+          <tr>
+            <td class="border border-black p-1 text-center">${dateLeft}</td>
+            <td class="border border-black p-1 text-center">${deliveredQtyLeft}</td>
+            <td class="border border-black p-1"></td>
+            <td class="border border-black p-1 text-center">${dateRight <= totalDaysInMonth ? dateRight : ''}</td>
+            <td class="border border-black p-1 text-center">${deliveredQtyRight}</td>
+            <td class="border border-black p-1"></td>
+          </tr>`;
+      }
+
 
       const calendarHTML = `
       <!DOCTYPE html>
@@ -72,7 +211,6 @@ const Billing: React.FC = () => {
 </head>
 <body class="bg-white p-4">
   <div class="max-w-xl mx-auto border border-black p-4">
-    <!-- Header -->
     <div class="flex justify-between items-center border-b border-black pb-2 mb-2">
       <div class="text-left text-xs">
         <div class="font-bold text-blue-900 text-lg">कंचन मिनरल वाटर</div>
@@ -86,47 +224,28 @@ const Billing: React.FC = () => {
       </div>
     </div>
 
-    <!-- Customer Info -->
     <div class="grid grid-cols-2 text-sm border-b border-black pb-1 mb-2">
       <div>मो.: ${bill.phone_number}</div>
       <div class="text-right">दिनांक: ${monthName} ${year}</div>
       <div class="col-span-2">श्रीमान: ${bill.name}</div>
     </div>
 
-    <!-- Delivery Record Table -->
     <table class="w-full text-xs border border-black border-collapse">
       <thead>
         <tr>
-          <th class="border border-black p-1">क्र.</th>
+          <th class="border border-black p-1">दिनांक</th>
           <th class="border border-black p-1">संख्या</th>
           <th class="border border-black p-1">केन वापसी</th>
-          <th class="border border-black p-1">हस्ताक्षर</th>
-          <th class="border border-black p-1">क्र.</th>
+          <th class="border border-black p-1">दिनांक</th>
           <th class="border border-black p-1">संख्या</th>
           <th class="border border-black p-1">केन वापसी</th>
-          <th class="border border-black p-1">हस्ताक्षर</th>
         </tr>
       </thead>
       <tbody>
-        ${Array.from({ length: 16 }, (_, i) => {
-          const left = ledgerData[i];
-          const right = ledgerData[i + 16];
-          return `
-          <tr>
-            <td class="border border-black p-1 text-center">${i + 1}</td>
-            <td class="border border-black p-1 text-center">${left ? left.delivered_qty : ''}</td>
-            <td class="border border-black p-1"></td>
-            <td class="border border-black p-1"></td>
-            <td class="border border-black p-1 text-center">${i + 17}</td>
-            <td class="border border-black p-1 text-center">${right ? right.delivered_qty : ''}</td>
-            <td class="border border-black p-1"></td>
-            <td class="border border-black p-1"></td>
-          </tr>`;
-        }).join('')}
+        ${ledgerRows}
       </tbody>
     </table>
 
-    <!-- Total and Notes -->
     <div class="flex justify-between items-center border-t border-black mt-2 pt-1 text-sm">
       <div class="text-xs">
         <div>नोट: प्रति माह 12 केन लेना अनिवार्य है।</div>
@@ -134,27 +253,28 @@ const Billing: React.FC = () => {
         <div>* केन 1 दिन से अधिक रखने पर प्रति दिन 10 रुपये चार्ज लगेगा।</div>
       </div>
       <div class="text-right font-bold border border-black px-2 py-1 text-xs">
-        <div>कुल केन: ${ledgerData.reduce((sum: number, d: { delivered_qty: any; }) => sum + Number(d.delivered_qty), 0)}</div>
-        <div>कुल राशि: ₹${ledgerData.reduce((sum: number, d: { delivered_qty: any; }) => sum + Number(d.delivered_qty), 0) * pricePerCan}</div>
+        <div>कुल केन: ${totalCans}</div>
+        <div>कुल राशि: ₹${totalAmount}</div>
       </div>
     </div>
   </div>
 </body>
 </html>
       `;
-
-      ledgerWindow.document.write(calendarHTML);
+      setLedgerHTML(calendarHTML);
+      setIsModalOpen(true);
     } catch (err) {
-      toast.error('Failed to fetch ledger data');
+      console.error("Error in openLedger:", err);
+      toast.error('Failed to fetch ledger data for modal');
     }
   };
 
   const filteredBills = bills.filter(bill => {
     const matchesSearch = bill.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         bill.phone_number.includes(searchTerm);
-    const matchesStatus = filterStatus === 'all' || 
-                         (filterStatus === 'paid' && bill.paid_status) ||
-                         (filterStatus === 'unpaid' && !bill.paid_status);
+                            bill.phone_number.includes(searchTerm);
+    const matchesStatus = filterStatus === 'all' ||
+                            (filterStatus === 'paid' && bill.paid_status) ||
+                            (filterStatus === 'unpaid' && !bill.paid_status);
     return matchesSearch && matchesStatus;
   });
 
@@ -173,10 +293,27 @@ const Billing: React.FC = () => {
           variant="primary"
           icon={<CreditCard size={16} />}
           className="mt-3 sm:mt-0"
+          onClick={handleGenerateAllBills}
+          disabled={isGeneratingBills}
         >
-          Generate Bills
+          {isGeneratingBills ? (
+            <>
+              <div className="spinner" style={{ border: '3px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', width: '16px', height: '16px', animation: 'spin 1s linear infinite' }}></div>
+              Generating...
+            </>
+          ) : (
+            'Generate Bills'
+          )}
         </Button>
       </div>
+
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+
 
       <Card>
         <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 mb-4">
@@ -303,6 +440,20 @@ const Billing: React.FC = () => {
               ))}
             </tbody>
           </table>
+
+          {isModalOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+              <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded shadow-lg p-4 relative">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="absolute top-2 right-2 text-gray-600 hover:text-black"
+                >
+                  ✖
+                </button>
+                <div dangerouslySetInnerHTML={{ __html: ledgerHTML }} />
+              </div>
+            </div>
+          )}
         </div>
 
         {filteredBills.length === 0 && (

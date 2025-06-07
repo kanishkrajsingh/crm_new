@@ -12,6 +12,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/generate-bill-pdf': {  // Add this proxy setting
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   optimizeDeps: {
