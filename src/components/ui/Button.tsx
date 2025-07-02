@@ -9,6 +9,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: ReactNode;
   children: ReactNode;
   fullWidth?: boolean;
+  loading?: boolean; // Added missing loading prop
 }
 
 const Button: React.FC<ButtonProps> = ({ 
@@ -18,6 +19,8 @@ const Button: React.FC<ButtonProps> = ({
   children, 
   className = '',
   fullWidth = false,
+  loading = false, // Added loading prop
+  disabled,
   ...props 
 }) => {
   const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors';
@@ -38,13 +41,18 @@ const Button: React.FC<ButtonProps> = ({
   };
   
   const widthClass = fullWidth ? 'w-full' : '';
+  const disabledClass = (disabled || loading) ? 'opacity-50 cursor-not-allowed' : '';
   
   return (
     <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${widthClass} ${className}`}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${widthClass} ${disabledClass} ${className}`}
+      disabled={disabled || loading}
       {...props}
     >
-      {icon && <span className="mr-2">{icon}</span>}
+      {loading && (
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+      )}
+      {!loading && icon && <span className="mr-2">{icon}</span>}
       {children}
     </button>
   );

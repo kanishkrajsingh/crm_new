@@ -9,7 +9,7 @@ interface PdfLedgerTemplateProps {
   selectedMonth: string; // "YYYY-MM"
 }
 
-const PdfLedgerTemplate: React.FC<PdfLedgerTemplateTemplateProps> = ({
+const PdfLedgerTemplate: React.FC<PdfLedgerTemplateProps> = ({
   bill,
   ledgerData,
   currentPrice,
