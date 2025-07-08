@@ -25,6 +25,9 @@ const DailyUpdate: React.FC = () => {
   const [savingCustomerId, setSavingCustomerId] = useState<string | null>(null);
   const [nextDayCollections, setNextDayCollections] = useState<Array<{ customer_id: string; name: string; holding_status: number }>>([]);
 
+  // Calculate the maximum allowed date (today)
+  const maxDate = new Date().toISOString().split('T')[0];
+
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
@@ -110,23 +113,23 @@ const DailyUpdate: React.FC = () => {
     setUpdates(prev => {
       const existing = prev[customerId] || { delivered: '', collected: '', holding_status: 0, notes: '' };
       const updated = { ...existing, [field]: value };
-  
+
       const d = parseInt(updated.delivered as string) || 0;
       const c = parseInt(updated.collected as string) || 0;
       const customer = customers.find(cust => cust.customer_id === customerId);
       const previousHolding = customer?.can_qty || 0;
-  
+
       updated.holding_status = previousHolding + d - c;
-  
+
       return {
         ...prev,
         [customerId]: updated,
       };
     });
   };
-  
-  
-  
+
+
+
 
   const handleSaveSingleUpdate = async (customerId: string) => {
     setSavingCustomerId(customerId);
@@ -207,6 +210,7 @@ const DailyUpdate: React.FC = () => {
               className="border-gray-300 rounded-md"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
+              max={maxDate} // Added max attribute here
             />
           </div>
 
@@ -288,25 +292,25 @@ const DailyUpdate: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     {customer.phone_number}
                   </td>
-                 
+
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-  <input
-    type="number"
-    min="0"
-    className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ring-1 ring-gray-300"
-    value={updates[customer.customer_id]?.delivered ?? ''}
-    onChange={(e) => handleUpdateChange(customer.customer_id, 'delivered', e.target.value)}
-  />
-</td>
-<td className="px-6 py-4 whitespace-nowrap text-center">
-  <input
-    type="number"
-    min="0"
-    className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 ring-1 ring-gray-300"
-    value={updates[customer.customer_id]?.collected ?? ''}
-    onChange={(e) => handleUpdateChange(customer.customer_id, 'collected', e.target.value)}
-  />
-</td>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ring-1 ring-gray-300"
+                      value={updates[customer.customer_id]?.delivered ?? ''}
+                      onChange={(e) => handleUpdateChange(customer.customer_id, 'delivered', e.target.value)}
+                    />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 ring-1 ring-gray-300"
+                      value={updates[customer.customer_id]?.collected ?? ''}
+                      onChange={(e) => handleUpdateChange(customer.customer_id, 'collected', e.target.value)}
+                    />
+                  </td>
 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <span className="text-sm text-gray-700">
@@ -314,13 +318,13 @@ const DailyUpdate: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                  <input
-  type="text"
-  placeholder="Optional"
-  className="w-full border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ring-1 ring-gray-300"
-  value={updates[customer.customer_id]?.notes || ''}
-  onChange={(e) => handleUpdateChange(customer.customer_id, 'notes', e.target.value)}
-/>
+                    <input
+                      type="text"
+                      placeholder="Optional"
+                      className="w-full border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ring-1 ring-gray-300"
+                      value={updates[customer.customer_id]?.notes || ''}
+                      onChange={(e) => handleUpdateChange(customer.customer_id, 'notes', e.target.value)}
+                    />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <Button

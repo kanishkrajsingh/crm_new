@@ -72,9 +72,9 @@ const Billing: React.FC = () => {
             }
 
             // Update local state
-            setBills(prevBills => 
-                prevBills.map(bill => 
-                    bill.customer_id === customerId 
+            setBills(prevBills =>
+                prevBills.map(bill =>
+                    bill.customer_id === customerId
                         ? { ...bill, paid_status: newPaidStatus }
                         : bill
                 )
@@ -253,8 +253,16 @@ const Billing: React.FC = () => {
             }
             const ledgerData = await response.json();
 
-            const [year, month] = selectedMonth.split('-');
-            const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long' });
+            const [year, monthNum] = selectedMonth.split('-');
+            const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString('default', { month: 'long' });
+
+            // Create a Map for easy lookup of delivered quantity by day
+            const dailyDeliveries = new Map();
+            ledgerData.forEach((entry: { date: string | number | Date; delivered_qty: any; }) => {
+                const date = new Date(entry.date);
+                const day = date.getDate();
+                dailyDeliveries.set(day, entry.delivered_qty);
+            });
 
             const pricePerCan = bill.customer_type === 'shop' ? currentPrice.shop_price :
                 bill.customer_type === 'monthly' ? currentPrice.monthly_price :
@@ -262,6 +270,9 @@ const Billing: React.FC = () => {
 
             const totalCans = ledgerData.reduce((sum: number, d: { delivered_qty: any; }) => sum + Number(d.delivered_qty), 0);
             const totalAmount = totalCans * pricePerCan;
+
+            // Determine the number of days in the selected month
+            const daysInMonth = new Date(parseInt(year), parseInt(monthNum), 0).getDate();
 
             const calendarHTML = `
             <!DOCTYPE html>
@@ -303,20 +314,24 @@ const Billing: React.FC = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    ${Array.from({ length: 16 }, (_, i) => {
-                      const left = ledgerData[i];
-                      const right = ledgerData[i + 16];
-                      return `
-                      <tr>
-                        <td style="border: 1px solid black; padding: 0.25rem; text-align: center;">${i + 1}</td>
-                        <td style="border: 1px solid black; padding: 0.25rem; text-align: center;">${left ? left.delivered_qty : ''}</td>
-                        <td style="border: 1px solid black; padding: 0.25rem;"></td>
-                        <td style="border: 1px solid black; padding: 0.25rem; text-align: center;">${i + 17}</td>
-                        <td style="border: 1px solid black; padding: 0.25rem; text-align: center;">${right ? right.delivered_qty : ''}</td>
-                        <td style="border: 1px solid black; padding: 0.25rem;"></td>
-                      </tr>`;
+                    ${Array.from({ length: Math.ceil(daysInMonth / 2) }, (_, i) => { // Iterate up to half the days in the month
+                        const dayLeft = i + 1;
+                        const dayRight = i + 1 + Math.ceil(daysInMonth / 2); // Calculate the right column's day
+
+                        const deliveredQtyLeft = dailyDeliveries.get(dayLeft) || '';
+                        const deliveredQtyRight = (dayRight <= daysInMonth) ? (dailyDeliveries.get(dayRight) || '') : '';
+
+                        return `
+                            <tr>
+                                <td style="border: 1px solid black; padding: 0.25rem; text-align: center;">${dayLeft}</td>
+                                <td style="border: 1px solid black; padding: 0.25rem; text-align: center;">${deliveredQtyLeft}</td>
+                                <td style="border: 1px solid black; padding: 0.25rem;"></td>
+                                <td style="border: 1px solid black; padding: 0.25rem; text-align: center;">${dayRight <= daysInMonth ? dayRight : ''}</td>
+                                <td style="border: 1px solid black; padding: 0.25rem; text-align: center;">${deliveredQtyRight}</td>
+                                <td style="border: 1px solid black; padding: 0.25rem;"></td>
+                            </tr>`;
                     }).join('')}
-                  </tbody>
+                </tbody>
                 </table>
 
                 <div class="flex justify-between items-center border-t border-black mt-2 pt-1 text-sm">
@@ -375,7 +390,7 @@ const Billing: React.FC = () => {
                                 Generating...
                             </>
                         ) : (
-                            'Generate Bills'
+                            'Download Bills'
                         )}
                     </Button>
                     <Button
@@ -384,13 +399,13 @@ const Billing: React.FC = () => {
                         onClick={handleSaveAllBillsToDB}
                         disabled={isSavingBills || isGeneratingBills}
                     >
-                        {isSavingBills ? (  
+                        {isSavingBills ? (
                             <>
                                 <div className="spinner" style={{ border: '3px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', width: '16px', height: '16px', animation: 'spin 1s linear infinite' }}></div>
                                 Saving...
                             </>
                         ) : (
-                            'Save All Bills to DB'
+                            'Generate Bills'
                         )}
                     </Button>
                 </div>

@@ -31,6 +31,8 @@ interface Order {
   delivery_time: string;
   order_status: 'pending' | 'processing' | 'delivered' | 'cancelled';
   notes?: string;
+  // Added for future use in form components, and for display here if available
+  collected_date?: string;
 }
 
 const Orders: React.FC = () => {
@@ -61,6 +63,27 @@ const Orders: React.FC = () => {
       toast.error(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: number) => {
+    if (window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
+      try {
+        const response = await fetch(`/api/orders/${orderId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData?.error || 'Failed to delete order');
+        }
+
+        setOrders(orders.filter(order => order.id !== orderId));
+        toast.success('Order deleted successfully!');
+      } catch (err: any) {
+        console.error('Error deleting order:', err);
+        toast.error(err.message);
+      }
     }
   };
 
@@ -97,13 +120,13 @@ const Orders: React.FC = () => {
   };
 
   const getCollectionStatus = (order: Order) => {
-    if (!order.collected_qty) return 'No collection';
+    if (order.collected_qty === undefined || order.collected_qty === null) return 'Not set'; // Changed from 'No collection' for clarity
     if (order.collected_qty >= order.can_qty) return 'Complete';
     return `${order.collected_qty}/${order.can_qty}`;
   };
 
   const getCollectionStatusColor = (order: Order) => {
-    if (!order.collected_qty) return 'text-gray-500';
+    if (order.collected_qty === undefined || order.collected_qty === null) return 'text-gray-500';
     if (order.collected_qty >= order.can_qty) return 'text-green-600';
     return 'text-orange-600';
   };
@@ -190,8 +213,11 @@ const Orders: React.FC = () => {
                   Cans
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Collection
+                  Collected Cans
                 </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Collection Date
+                </th> {/* New Column */}
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Delivery Date
                 </th>
@@ -221,10 +247,15 @@ const Orders: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     {order.can_qty}
                   </td>
+                  {/* Display Collected Cans */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`text-sm font-medium ${getCollectionStatusColor(order)}`}>
                       {getCollectionStatus(order)}
                     </span>
+                  </td>
+                  {/* Display Collection Date */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    {order.collected_date ? new Date(order.collected_date).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     {new Date(order.delivery_date).toLocaleDateString()}
@@ -246,9 +277,10 @@ const Orders: React.FC = () => {
                       >
                         <Edit size={16} />
                       </button>
-                      <button 
+                      <button
                         className="text-red-600 hover:text-red-800"
                         title="Delete Order"
+                        onClick={() => handleDeleteOrder(order.id)} // Added onClick handler
                       >
                         <Trash2 size={16} />
                       </button>

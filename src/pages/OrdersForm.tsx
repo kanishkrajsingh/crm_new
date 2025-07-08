@@ -1,13 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Save, ArrowLeft, FileText } from 'lucide-react';
+import { Save, ArrowLeft, FileText, Eye, X } from 'lucide-react'; // Import Eye and X icons
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import toast from 'react-hot-toast';
 import Select from '../components/ui/Select';
+import ReactDOM from 'react-dom'; // Import ReactDOM for portal
 
 interface OrderFormProps {}
+
+// Reusable Modal Component
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  title: string;
+}
+
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
+  if (!isOpen) return null;
+
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full p-6 relative">
+        <div className="flex justify-between items-center border-b pb-3 mb-4">
+          <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X size={24} />
+          </button>
+        </div>
+        <div className="modal-content max-h-[80vh] overflow-y-auto">
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body // Render the modal outside the main app div
+  );
+};
 
 const OrderForm: React.FC<OrderFormProps> = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,7 +51,8 @@ const OrderForm: React.FC<OrderFormProps> = () => {
     customer_address: '',
     delivery_amount: 0,
     can_qty: 0,
-    collected_qty: 0, // New field for collected cans
+    collected_qty: 0,
+    collected_date: '',
     delivery_date: new Date().toISOString().split('T')[0],
     delivery_time: '10:00',
     order_status: 'pending',
@@ -31,10 +62,19 @@ const OrderForm: React.FC<OrderFormProps> = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [generatingReceipt, setGeneratingReceipt] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // State for modal visibility
+  const [modalContent, setModalContent] = useState(''); // State to hold the HTML content for the modal
 
   useEffect(() => {
     if (isEditing && id) {
       fetchOrder(id);
+    }
+    if (!isEditing) {
+      setFormData(prev => ({
+        ...prev,
+        collected_qty: 0,
+        collected_date: '',
+      }));
     }
   }, [isEditing, id]);
 
@@ -52,6 +92,7 @@ const OrderForm: React.FC<OrderFormProps> = () => {
           delivery_amount: data.delivery_amount || 0,
           can_qty: data.can_qty,
           collected_qty: data.collected_qty || 0,
+          collected_date: data.collected_date ? data.collected_date.split('T')[0] : '',
           delivery_date: data.delivery_date.split('T')[0],
           delivery_time: data.delivery_time,
           order_status: data.order_status,
@@ -70,7 +111,7 @@ const OrderForm: React.FC<OrderFormProps> = () => {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+    const { name, value } = e.target;
 
     setFormData({ ...formData, [name]: value });
     if (errors[name]) {
@@ -85,8 +126,15 @@ const OrderForm: React.FC<OrderFormProps> = () => {
     if (!formData.customer_address) newErrors.customer_address = 'Delivery Address is required';
     if (!formData.order_date) newErrors.order_date = 'Order Date is required';
     if (formData.can_qty <= 0) newErrors.can_qty = 'Can Quantity must be greater than 0';
-    if (formData.collected_qty < 0) newErrors.collected_qty = 'Collected Quantity cannot be negative';
-    if (formData.collected_qty > formData.can_qty) newErrors.collected_qty = 'Collected Quantity cannot exceed delivered quantity';
+
+    if (isEditing) {
+      if (formData.collected_qty < 0) newErrors.collected_qty = 'Collected Quantity cannot be negative';
+      if (formData.collected_qty > formData.can_qty) newErrors.collected_qty = 'Collected Quantity cannot exceed delivered quantity';
+      if (formData.collected_qty > 0 && !formData.collected_date) {
+        newErrors.collected_date = 'Collection Date is required if cans are collected';
+      }
+    }
+
     if (!formData.delivery_date) newErrors.delivery_date = 'Delivery Date is required';
     if (!formData.delivery_time) newErrors.delivery_time = 'Delivery Time is required';
     if (!formData.order_status) newErrors.order_status = 'Order Status is required';
@@ -102,12 +150,18 @@ const OrderForm: React.FC<OrderFormProps> = () => {
         const url = isEditing ? `/api/orders/${id}` : '/api/orders';
         const method = isEditing ? 'PUT' : 'POST';
 
+        const payload = {
+          ...formData,
+          notes: formData.notes === '' ? null : formData.notes,
+          collected_date: formData.collected_date === '' ? null : formData.collected_date,
+        };
+
         const response = await fetch(url, {
           method,
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
 
         if (response.ok) {
@@ -133,7 +187,6 @@ const OrderForm: React.FC<OrderFormProps> = () => {
 
     setGeneratingReceipt(true);
     try {
-      // Get current prices for calculation
       const pricesResponse = await fetch('/api/settings/prices');
       if (!pricesResponse.ok) {
         throw new Error('Failed to fetch prices');
@@ -145,11 +198,9 @@ const OrderForm: React.FC<OrderFormProps> = () => {
         throw new Error('Current pricing data not found');
       }
 
-      // Calculate total amount (assuming order customers use order_price)
       const pricePerCan = currentPrice.order_price;
       const totalAmount = formData.can_qty * pricePerCan;
 
-      // Generate receipt PDF
       const receiptData = {
         order: {
           id: id,
@@ -192,6 +243,134 @@ const OrderForm: React.FC<OrderFormProps> = () => {
     }
   };
 
+  // Function to handle viewing the receipt in a new window
+  const viewReceipt = async () => {
+    if (!isEditing || !id) {
+      toast.error('Please save the order first before viewing receipt');
+      return;
+    }
+
+    try {
+      // Fetch prices as before to calculate total amount for the receipt
+      const pricesResponse = await fetch('/api/settings/prices');
+      if (!pricesResponse.ok) {
+        throw new Error('Failed to fetch prices');
+      }
+      const prices = await pricesResponse.json();
+      const currentPrice = prices[0];
+
+      if (!currentPrice) {
+        throw new Error('Current pricing data not found');
+      }
+
+      const pricePerCan = currentPrice.order_price;
+      const totalAmount = formData.can_qty * pricePerCan;
+
+      // Simulate bill data for the calendarHTML, using formData for customer info
+      const bill = {
+        name: formData.customer_name,
+        phone_number: formData.customer_phone,
+      };
+
+      const today = new Date();
+      const monthName = today.toLocaleString('en-US', { month: 'long' });
+      const year = today.getFullYear();
+      const daysInMonth = new Date(year, today.getMonth() + 1, 0).getDate(); // Get number of days in current month
+
+      // For dailyDeliveries, you'd ideally fetch this based on the customer and month.
+      // For this example, we'll use a dummy map.
+      const dailyDeliveries = new Map<number, number>();
+      // Adding some dummy data for dailyDeliveries
+      dailyDeliveries.set(5, 2);
+      dailyDeliveries.set(10, 3);
+      dailyDeliveries.set(15, 1);
+      dailyDeliveries.set(20, 2);
+
+      let calculatedTotalCans = 0;
+      dailyDeliveries.forEach(qty => {
+        calculatedTotalCans += qty;
+      });
+      const totalCans = calculatedTotalCans; // Using calculated value for total cans
+
+      // Construct the HTML content for the modal
+      const calendarHTML = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <title>View Reciept Ledger - ${bill.name} (${monthName} ${year})</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+              body { margin: 0; padding: 0; }
+              @media print {
+                body {
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
+                }
+                .max-w-xl { max-width: 25rem; /* Adjust as needed for print */ }
+              }
+            </style>
+            </head>
+            <body class="bg-white p-4">
+            <div class="max-w-xl mx-auto border border-black p-4">
+                <div class="flex justify-between items-center border-b border-black pb-2 mb-2">
+                <div class="text-left text-xs">
+                    <div class="font-bold text-blue-900 text-lg">कंचन मिनरल वाटर</div>
+                    <div>5, लेबर कॉलोनी, नई आबादी, मंदसौर</div>
+                    <div>Ph.: 07422-408555 Mob.: 9425033995</div>
+                </div>
+                <div class="text-center text-xs">
+                    <div class="font-bold text-blue-900 text-lg">कंचन चिल्ड वाटर</div>
+                    <div>साई मंदिर के पास, अभिनन्दन नगर, मंदसौर</div>
+                    <div>Mob.: 9685753343, 9516784779</div>
+                </div>
+                </div>
+
+                <div class="grid grid-cols-2 text-sm border-b border-black pb-1 mb-2">
+                 <div >श्रीमान: ${bill.name}</div>
+                <div class="text-right">दिनांक: ${monthName} ${year}</div>               
+                <div>मो.: ${bill.phone_number}</div>
+                </div>
+
+                <table class="w-full text-xs border border-black border-collapse">
+                <thead>
+                    <tr>
+                    <th class="border border-black p-1">दिनांक</th>
+                    <th class="border border-black p-1">संख्या</th>
+                    <th class="border border-black p-1">केन वापसी</th>
+                    </tr>
+                </thead>
+               <tbody>
+    <tr>
+        <td style="border: 1px solid black; padding: 0.25rem; text-align: center;"></td>
+        <td style="border: 1px solid black; padding: 0.25rem; text-align: center;"></td>
+        <td style="border: 1px solid black; padding: 0.25rem;"></td>
+    </tr>
+</tbody>
+                </table>
+
+                <div class="flex justify-between items-center border-t border-black mt-2 pt-1 text-sm">
+                <div class="text-xs">
+                    <div>नोट: प्रति माह 12 केन लेना अनिवार्य है।</div>
+                    <div>* अगर कार्ड के पोस्ट मान्य नहीं होगा।</div>
+                    <div>* केन 1 दिन से अधिक रखने पर प्रति दिन 10 रुपये चार्ज लगेगा।</div>
+                </div>
+                <div class="text-right font-bold border border-black px-2 py-1 text-xs">
+                    <div>कुल केन: ${totalCans}</div>
+                    <div>कुल राशि: ₹${totalAmount + formData.delivery_amount}</div>
+                </div>
+                </div>
+            </div>
+            </body>
+            </html>
+            `;
+      setModalContent(calendarHTML);
+      setIsModalOpen(true); // Open the modal
+    } catch (error: any) {
+      console.error('Error viewing receipt:', error);
+      toast.error(`Failed to view receipt: ${error.message}`);
+    }
+  };
+
   if (loading && isEditing) {
     return <div>Loading order details...</div>;
   }
@@ -216,14 +395,24 @@ const OrderForm: React.FC<OrderFormProps> = () => {
           </p>
         </div>
         {isEditing && (
-          <Button
-            variant="info"
-            icon={<FileText size={16} />}
-            onClick={generateReceipt}
-            disabled={generatingReceipt}
-          >
-            {generatingReceipt ? 'Generating...' : 'Generate Receipt'}
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              variant="info"
+              icon={<Eye size={16} />}
+              onClick={viewReceipt}
+              disabled={isModalOpen} // Disable button while modal is open
+            >
+              {isModalOpen ? 'Loading...' : 'View Receipt'}
+            </Button>
+            <Button
+              variant="info"
+              icon={<FileText size={16} />}
+              onClick={generateReceipt}
+              disabled={generatingReceipt}
+            >
+              {generatingReceipt ? 'Generating...' : 'Generate Receipt'}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -290,7 +479,19 @@ const OrderForm: React.FC<OrderFormProps> = () => {
               value={formData.collected_qty}
               onChange={handleChange}
               error={errors.collected_qty}
-              helper={`Maximum: ${formData.can_qty} cans`}
+              helper={isEditing ? `Maximum: ${formData.can_qty} cans` : 'Can only be updated when editing an order'}
+              disabled={!isEditing}
+            />
+            <Input
+              label="Collected Date"
+              id="collected_date"
+              name="collected_date"
+              type="date"
+              value={formData.collected_date}
+              onChange={handleChange}
+              error={errors.collected_date}
+              disabled={!isEditing}
+              required={isEditing && formData.collected_qty > 0}
             />
             <Input
               label="Delivery Charge (₹)"
@@ -360,9 +561,9 @@ const OrderForm: React.FC<OrderFormProps> = () => {
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              variant="primary" 
+            <Button
+              type="submit"
+              variant="primary"
               icon={<Save size={16} />}
               disabled={loading}
             >
@@ -371,6 +572,11 @@ const OrderForm: React.FC<OrderFormProps> = () => {
           </div>
         </form>
       </Card>
+
+      {/* The Modal Component */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Customer Ledger">
+        <div dangerouslySetInnerHTML={{ __html: modalContent }} />
+      </Modal>
     </div>
   );
 };

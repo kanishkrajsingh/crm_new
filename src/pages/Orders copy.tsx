@@ -7,13 +7,15 @@ import {
   Trash2,
   Filter,
   Download,
-  Package, // Example icon for orders
+  Package,
   Calendar,
-  User
+  User,
+  CheckCircle,
+  Clock,
+  XCircle
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { useApp } from '../context/AppContext'; // Assuming you have context
 import toast from 'react-hot-toast';
 
 interface Order {
@@ -21,8 +23,9 @@ interface Order {
   order_date: string;
   customer_name: string;
   customer_phone: string;
-  delivery_address: string;
+  customer_address: string;
   can_qty: number;
+  collected_qty?: number;
   delivery_amount?: number;
   delivery_date: string;
   delivery_time: string;
@@ -39,27 +42,27 @@ const Orders: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch('/api/orders'); // Your orders API endpoint
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData?.error || 'Failed to fetch orders');
-        }
-        const data: Order[] = await response.json();
-        setOrders(data);
-      } catch (err: any) {
-        setError(err.message);
-        toast.error(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOrders();
   }, []);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/orders');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData?.error || 'Failed to fetch orders');
+      }
+      const data: Order[] = await response.json();
+      setOrders(data);
+    } catch (err: any) {
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -70,11 +73,39 @@ const Orders: React.FC = () => {
 
   const getOrderStatusIcon = (status: Order['order_status']) => {
     switch (status) {
-      case 'pending': return <Calendar className="h-4 w-4 text-yellow-500" />;
-      case 'processing': return <Package className="h-4 w-4 text-blue-500 animate-spin" />;
-      case 'delivered': return <User className="h-4 w-4 text-green-500" />;
-      case 'cancelled': return <Trash2 className="h-4 w-4 text-red-500" />;
+      case 'pending': return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'processing': return <Package className="h-4 w-4 text-blue-500" />;
+      case 'delivered': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'cancelled': return <XCircle className="h-4 w-4 text-red-500" />;
     }
+  };
+
+  const getOrderStatusBadge = (status: Order['order_status']) => {
+    const baseClasses = "px-2 inline-flex text-xs leading-5 font-semibold rounded-full";
+    switch (status) {
+      case 'pending':
+        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+      case 'processing':
+        return `${baseClasses} bg-blue-100 text-blue-800`;
+      case 'delivered':
+        return `${baseClasses} bg-green-100 text-green-800`;
+      case 'cancelled':
+        return `${baseClasses} bg-red-100 text-red-800`;
+      default:
+        return `${baseClasses} bg-gray-100 text-gray-800`;
+    }
+  };
+
+  const getCollectionStatus = (order: Order) => {
+    if (!order.collected_qty) return 'No collection';
+    if (order.collected_qty >= order.can_qty) return 'Complete';
+    return `${order.collected_qty}/${order.can_qty}`;
+  };
+
+  const getCollectionStatusColor = (order: Order) => {
+    if (!order.collected_qty) return 'text-gray-500';
+    if (order.collected_qty >= order.can_qty) return 'text-green-600';
+    return 'text-orange-600';
   };
 
   if (loading) {
@@ -149,9 +180,8 @@ const Orders: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer Name
+                  Customer
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Phone
@@ -160,10 +190,13 @@ const Orders: React.FC = () => {
                   Cans
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Collection
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Delivery Date
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Delivery Time
+                  Time
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -176,9 +209,11 @@ const Orders: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredOrders.map((order) => (
                 <tr key={order.id} className="hover:bg-gray-50">
-                  
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-gray-700">{order.customer_name}</div>
+                    <div>
+                      <div className="font-medium text-gray-900">{order.customer_name}</div>
+                      <div className="text-sm text-gray-500">Order #{order.id}</div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     {order.customer_phone}
@@ -186,27 +221,35 @@ const Orders: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     {order.can_qty}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`text-sm font-medium ${getCollectionStatusColor(order)}`}>
+                      {getCollectionStatus(order)}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                  {new Date(order.delivery_date).toLocaleDateString()}
+                    {new Date(order.delivery_date).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     {order.delivery_time}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {getOrderStatusIcon(order.order_status)}
-                      <span className="ml-1 text-sm text-gray-700">{order.order_status}</span>
-                    </div>
+                    <span className={getOrderStatusBadge(order.order_status)}>
+                      {order.order_status}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     <div className="flex space-x-2">
                       <button
                         className="text-blue-600 hover:text-blue-800"
                         onClick={() => navigate(`/orders/edit/${order.id}`)}
+                        title="Edit Order"
                       >
                         <Edit size={16} />
                       </button>
-                      <button className="text-red-600 hover:text-red-800">
+                      <button 
+                        className="text-red-600 hover:text-red-800"
+                        title="Delete Order"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>
