@@ -221,13 +221,17 @@ const OrderForm: React.FC<OrderFormProps> = () => {
       }
 
       const pricePerCan = currentPrices.order_price;
-      const totalAmount = formData.can_qty * pricePerCan;
+      const subtotal = formData.can_qty * pricePerCan;
+      const deliveryAmount = Number(formData.delivery_amount) || 0;
+      const missingCans = Math.max(0, formData.can_qty - (formData.collected_qty || 0));
+      const missingCanCharge = missingCans * 500;
+      const totalAmount = subtotal + deliveryAmount + missingCanCharge;
 
       const receiptData = {
         order: {
           id: id,
           ...formData,
-          total_amount: totalAmount + formData.delivery_amount,
+          total_amount: totalAmount,
           price_per_can: pricePerCan,
         }
       };
@@ -278,7 +282,13 @@ const OrderForm: React.FC<OrderFormProps> = () => {
 
       const pricePerCan = currentPrices.order_price;
       const subtotal = formData.can_qty * pricePerCan;
-      const totalAmount = subtotal + formData.delivery_amount;
+      const deliveryAmount = Number(formData.delivery_amount) || 0;
+      
+      // Calculate missing can charges (500 per missing can)
+      const missingCans = Math.max(0, formData.can_qty - (formData.collected_qty || 0));
+      const missingCanCharge = missingCans * 500;
+      
+      const totalAmount = subtotal + deliveryAmount + missingCanCharge;
       const orderDate = new Date(formData.order_date).toLocaleDateString('en-IN');
       const deliveryDate = new Date(formData.delivery_date).toLocaleDateString('en-IN');
 
@@ -556,8 +566,24 @@ const OrderForm: React.FC<OrderFormProps> = () => {
                       <div class="text-sm text-gray-500">Home Delivery Service</div>
                     </td>
                     <td style="text-align: center; font-weight: 600; color: #1e40af;">1</td>
-                    <td style="text-align: center;">₹${formData.delivery_amount}</td>
-                    <td style="text-align: right; font-weight: 600;">₹${formData.delivery_amount}</td>
+                    <td style="text-align: center;">₹${deliveryAmount}</td>
+                    <td style="text-align: right; font-weight: 600;">₹${deliveryAmount}</td>
+                  </tr>
+                  ` : ''}
+                  ${missingCans > 0 ? `
+                  <tr style="background-color: #fef2f2;">
+                    <td>
+                      <div class="font-semibold flex items-center text-red-600">
+                        <svg class="w-5 h-5 mr-2 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        Missing Can Charges
+                      </div>
+                      <div class="text-sm text-red-500">Penalty for ${missingCans} missing can${missingCans > 1 ? 's' : ''}</div>
+                    </td>
+                    <td style="text-align: center; font-weight: 600; color: #dc2626;">${missingCans}</td>
+                    <td style="text-align: center; color: #dc2626;">₹500</td>
+                    <td style="text-align: right; font-weight: 600; color: #dc2626;">₹${missingCanCharge}</td>
                   </tr>
                   ` : ''}
                 </tbody>
@@ -574,7 +600,7 @@ const OrderForm: React.FC<OrderFormProps> = () => {
                   </span>
                   <span class="font-semibold">₹${subtotal}</span>
                 </div>
-                ${formData.delivery_amount && formData.delivery_amount > 0 ? `
+                ${deliveryAmount > 0 ? `
                 <div class="total-row">
                   <span class="flex items-center">
                     <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -583,7 +609,18 @@ const OrderForm: React.FC<OrderFormProps> = () => {
                     </svg>
                     Delivery Charges:
                   </span>
-                  <span class="font-semibold">₹${formData.delivery_amount}</span>
+                  <span class="font-semibold">₹${deliveryAmount}</span>
+                </div>
+                ` : ''}
+                ${missingCanCharge > 0 ? `
+                <div class="total-row" style="color: #dc2626;">
+                  <span class="flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    Missing Can Charges (${missingCans} × ₹500):
+                  </span>
+                  <span class="font-semibold">₹${missingCanCharge}</span>
                 </div>
                 ` : ''}
                 <div class="total-row final">
@@ -598,7 +635,7 @@ const OrderForm: React.FC<OrderFormProps> = () => {
               </div>
 
               <!-- Collection Status -->
-              ${formData.collected_qty !== undefined && formData.collected_qty > 0 ? `
+              ${formData.collected_qty !== undefined && (formData.collected_qty > 0 || missingCans > 0) ? `
               <div class="collection-status">
                 <h3 class="font-semibold text-blue-800 mb-4 flex items-center text-lg">
                   <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -606,7 +643,7 @@ const OrderForm: React.FC<OrderFormProps> = () => {
                   </svg>
                   Collection Status
                 </h3>
-                <div class="grid grid-cols-2 gap-6">
+                <div class="grid grid-cols-3 gap-4">
                   <div class="bg-white p-4 rounded-lg">
                     <div class="text-sm text-blue-600 font-medium mb-1">Cans Collected</div>
                     <div class="text-2xl font-bold text-blue-800">${formData.collected_qty} / ${formData.can_qty}</div>
@@ -615,11 +652,31 @@ const OrderForm: React.FC<OrderFormProps> = () => {
                     <div class="text-sm text-blue-600 font-medium mb-1">Pending Collection</div>
                     <div class="text-2xl font-bold text-blue-800">${formData.can_qty - formData.collected_qty} cans</div>
                   </div>
+                  ${missingCans > 0 ? `
+                  <div class="bg-red-50 p-4 rounded-lg border border-red-200">
+                    <div class="text-sm text-red-600 font-medium mb-1">Missing Cans</div>
+                    <div class="text-2xl font-bold text-red-600">${missingCans} cans</div>
+                    <div class="text-xs text-red-500 mt-1">₹500 per can penalty</div>
+                  </div>
+                  ` : `
+                  <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <div class="text-sm text-green-600 font-medium mb-1">Missing Cans</div>
+                    <div class="text-2xl font-bold text-green-600">0 cans</div>
+                    <div class="text-xs text-green-500 mt-1">No penalty</div>
+                  </div>
+                  `}
                 </div>
                 ${formData.collected_date ? `
                 <div class="mt-4 pt-4 border-t border-blue-200 bg-white p-4 rounded-lg">
                   <div class="text-sm text-blue-600 font-medium mb-1">Collection Date</div>
                   <div class="font-semibold text-blue-800 text-lg">${new Date(formData.collected_date).toLocaleDateString('en-IN')}</div>
+                </div>
+                ` : ''}
+                ${missingCanCharge > 0 ? `
+                <div class="mt-4 pt-4 border-t border-red-200 bg-red-50 p-4 rounded-lg">
+                  <div class="text-sm text-red-600 font-medium mb-1">Missing Can Penalty</div>
+                  <div class="font-semibold text-red-800 text-lg">₹${missingCanCharge} (${missingCans} × ₹500)</div>
+                  <div class="text-xs text-red-600 mt-1">Charged for unreturned cans</div>
                 </div>
                 ` : ''}
               </div>
@@ -950,24 +1007,40 @@ const OrderForm: React.FC<OrderFormProps> = () => {
                   <span className="text-sm text-gray-600">Subtotal</span>
                   <span className="font-semibold">₹{(formData.can_qty || 0) * (currentPrices?.order_price || 0)}</span>
                 </div>
-                {formData.delivery_amount > 0 && (
+                {Number(formData.delivery_amount) > 0 && (
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm text-gray-600">Delivery Charges</span>
-                    <span className="font-semibold">₹{formData.delivery_amount}</span>
+                    <span className="font-semibold">₹{Number(formData.delivery_amount)}</span>
                   </div>
                 )}
+                {(() => {
+                  const missingCans = Math.max(0, (formData.can_qty || 0) - (formData.collected_qty || 0));
+                  const missingCanCharge = missingCans * 500;
+                  return missingCanCharge > 0 ? (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-red-600">Missing Can Charges ({missingCans} × ₹500)</span>
+                      <span className="font-semibold text-red-600">₹{missingCanCharge}</span>
+                    </div>
+                  ) : null;
+                })()}
                 <div className="border-t border-gray-200 pt-2 mt-2">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-gray-900">Total Amount</span>
                     <span className="font-bold text-lg text-blue-600">
-                      ₹{(formData.can_qty || 0) * (currentPrices?.order_price || 0) + (formData.delivery_amount || 0)}
+                      ₹{(() => {
+                        const subtotal = (formData.can_qty || 0) * (currentPrices?.order_price || 0);
+                        const deliveryAmount = Number(formData.delivery_amount) || 0;
+                        const missingCans = Math.max(0, (formData.can_qty || 0) - (formData.collected_qty || 0));
+                        const missingCanCharge = missingCans * 500;
+                        return subtotal + deliveryAmount + missingCanCharge;
+                      })()}
                     </span>
                   </div>
                 </div>
               </div>
 
               {isEditing && formData.collected_qty > 0 && (
-                <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg">
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg mb-4">
                   <h4 className="font-semibold text-green-800 mb-2">Collection Status</h4>
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-sm text-gray-600">Collected</span>
@@ -980,6 +1053,28 @@ const OrderForm: React.FC<OrderFormProps> = () => {
                 </div>
               )}
 
+              {(() => {
+                const missingCans = Math.max(0, (formData.can_qty || 0) - (formData.collected_qty || 0));
+                const missingCanCharge = missingCans * 500;
+                return isEditing && missingCanCharge > 0 ? (
+                  <div className="bg-gradient-to-r from-red-50 to-orange-50 p-4 rounded-lg mb-4 border border-red-200">
+                    <h4 className="font-semibold text-red-800 mb-2 flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
+                      </svg>
+                      Missing Can Penalty
+                    </h4>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-gray-600">Missing Cans:</span>
+                      <span className="font-semibold text-red-600">{missingCans}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Penalty Amount:</span>
+                      <span className="font-semibold text-red-600">₹{missingCanCharge}</span>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-gray-800 mb-2">Order Information</h4>
                 <div className="space-y-1 text-sm">

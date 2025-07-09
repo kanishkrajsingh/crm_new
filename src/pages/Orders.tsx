@@ -109,7 +109,14 @@ const Orders: React.FC = () => {
       }
 
       const pricePerCan = currentPrice.order_price;
-      const totalAmount = order.can_qty * pricePerCan + (order.delivery_amount || 0);
+      const subtotal = order.can_qty * pricePerCan;
+      const deliveryAmount = Number(order.delivery_amount) || 0;
+      
+      // Calculate missing can charges (500 per missing can)
+      const missingCans = Math.max(0, order.can_qty - (order.collected_qty || 0));
+      const missingCanCharge = missingCans * 500;
+      
+      const totalAmount = subtotal + deliveryAmount + missingCanCharge;
 
       const receiptData = {
         order: {
@@ -169,7 +176,13 @@ const Orders: React.FC = () => {
 
       const pricePerCan = currentPrice.order_price;
       const subtotal = order.can_qty * pricePerCan;
-      const totalAmount = subtotal + (order.delivery_amount || 0);
+      const deliveryAmount = Number(order.delivery_amount) || 0;
+      
+      // Calculate missing can charges (500 per missing can)
+      const missingCans = Math.max(0, order.can_qty - (order.collected_qty || 0));
+      const missingCanCharge = missingCans * 500;
+      
+      const totalAmount = subtotal + deliveryAmount + missingCanCharge;
       const orderDate = new Date(order.order_date).toLocaleDateString('en-IN');
       const deliveryDate = new Date(order.delivery_date).toLocaleDateString('en-IN');
 
@@ -377,8 +390,24 @@ const Orders: React.FC = () => {
                       <div class="text-sm text-gray-500">Home Delivery Service</div>
                     </td>
                     <td style="text-align: center; font-weight: 600;">1</td>
-                    <td style="text-align: center;">₹${order.delivery_amount}</td>
-                    <td style="text-align: right; font-weight: 600;">₹${order.delivery_amount}</td>
+                    <td style="text-align: center;">₹${deliveryAmount}</td>
+                    <td style="text-align: right; font-weight: 600;">₹${deliveryAmount}</td>
+                  </tr>
+                  ` : ''}
+                  ${missingCans > 0 ? `
+                  <tr style="background-color: #fef2f2;">
+                    <td>
+                      <div class="font-semibold flex items-center text-red-600">
+                        <svg class="w-5 h-5 mr-2 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                        Missing Can Charges
+                      </div>
+                      <div class="text-sm text-red-500">Penalty for ${missingCans} missing can${missingCans > 1 ? 's' : ''}</div>
+                    </td>
+                    <td style="text-align: center; font-weight: 600; color: #dc2626;">${missingCans}</td>
+                    <td style="text-align: center; color: #dc2626;">₹500</td>
+                    <td style="text-align: right; font-weight: 600; color: #dc2626;">₹${missingCanCharge}</td>
                   </tr>
                   ` : ''}
                 </tbody>
@@ -390,10 +419,16 @@ const Orders: React.FC = () => {
                   <span>Subtotal:</span>
                   <span class="font-semibold">₹${subtotal}</span>
                 </div>
-                ${order.delivery_amount && order.delivery_amount > 0 ? `
+                ${deliveryAmount > 0 ? `
                 <div class="total-row">
                   <span>Delivery Charges:</span>
-                  <span class="font-semibold">₹${order.delivery_amount}</span>
+                  <span class="font-semibold">₹${deliveryAmount}</span>
+                </div>
+                ` : ''}
+                ${missingCanCharge > 0 ? `
+                <div class="total-row" style="color: #dc2626;">
+                  <span>Missing Can Charges (${missingCans} × ₹500):</span>
+                  <span class="font-semibold">₹${missingCanCharge}</span>
                 </div>
                 ` : ''}
                 <div class="total-row final">
@@ -403,7 +438,7 @@ const Orders: React.FC = () => {
               </div>
 
               <!-- Collection Status -->
-              ${order.collected_qty !== undefined && order.collected_qty > 0 ? `
+              ${order.collected_qty !== undefined && (order.collected_qty > 0 || missingCans > 0) ? `
               <div class="collection-status">
                 <h3 class="font-semibold text-blue-800 mb-3 flex items-center">
                   <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -411,7 +446,7 @@ const Orders: React.FC = () => {
                   </svg>
                   Collection Status
                 </h3>
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-3 gap-4">
                   <div>
                     <div class="text-sm text-blue-600 font-medium">Cans Collected</div>
                     <div class="text-lg font-bold text-blue-800">${order.collected_qty} / ${order.can_qty}</div>
@@ -419,6 +454,11 @@ const Orders: React.FC = () => {
                   <div>
                     <div class="text-sm text-blue-600 font-medium">Pending Collection</div>
                     <div class="text-lg font-bold text-blue-800">${order.can_qty - order.collected_qty} cans</div>
+                  </div>
+                  <div>
+                    <div class="text-sm ${missingCans > 0 ? 'text-red-600' : 'text-green-600'} font-medium">Missing Cans</div>
+                    <div class="text-lg font-bold ${missingCans > 0 ? 'text-red-800' : 'text-green-800'}">${missingCans} cans</div>
+                    ${missingCans > 0 ? `<div class="text-xs text-red-500">₹${missingCanCharge} penalty</div>` : ''}
                   </div>
                 </div>
                 ${order.collected_date ? `
