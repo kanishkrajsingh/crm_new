@@ -194,61 +194,37 @@ const Dashboard: React.FC = () => {
               Quick Actions
             </h3>
             <div className="space-y-3">
-            <Button
-              variant="secondary"
-              className="w-full justify-start bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 transition-all duration-200"
-              icon={<Package className="h-5 w-5" />}
-            >
-              Record Today's Delivery
-            </Button>
-            <Button
-              variant="secondary"
-              className="w-full justify-start bg-green-50 hover:bg-green-100 text-green-700 border-green-200 transition-all duration-200"
-              icon={<RefreshCw className="h-5 w-5" />}
-            >
-              Update Can Collection
-            </Button>
-            <Button
-              variant="secondary"
-              className="w-full justify-start bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 transition-all duration-200"
-              icon={<ShoppingCart className="h-5 w-5" />}
-              onClick={handleOrderClick}
-            >
-              Add New Order
-            </Button>
-            <Button
-              variant="secondary"
-              className="w-full justify-start bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200 transition-all duration-200"
-              icon={<Users className="h-5 w-5" />}
-              onClick={handleNewCustomerFromDashboard}
-            >
-              Register New Customer
-            </Button>
+              <Button
+                variant="secondary"
+                className="w-full justify-start bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 transition-all duration-200"
+                icon={<Package className="h-5 w-5" />}
+              >
+                Record Today's Delivery
+              </Button>
+              <Button
+                variant="secondary"
+                className="w-full justify-start bg-green-50 hover:bg-green-100 text-green-700 border-green-200 transition-all duration-200"
+                icon={<RefreshCw className="h-5 w-5" />}
+              >
+                Update Can Collection
+              </Button>
+              <Button
+                variant="secondary"
+                className="w-full justify-start bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 transition-all duration-200"
+                icon={<ShoppingCart className="h-5 w-5" />}
+                onClick={handleOrderClick}
+              >
+                Add New Order
+              </Button>
+              <Button
+                variant="secondary"
+                className="w-full justify-start bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200 transition-all duration-200"
+                icon={<Users className="h-5 w-5" />}
+                onClick={handleNewCustomerFromDashboard}
+              >
+                Register New Customer
+              </Button>
             </div>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-};
-
-export default Dashboard;
-              <Package className="h-5 w-5 mr-2" />
-              Record Today's Delivery
-              
-            </button>
-            <button className="w-full text-left px-3 py-2 bg-green-50 hover:bg-green-100 rounded-lg text-green-700 transition-colors flex items-center">
-              <RefreshCw className="h-5 w-5 mr-2" />
-              Update Can Collection
-            </button>
-            <button className="w-full text-left px-3 py-2 bg-purple-50 hover:bg-purple-100 rounded-lg text-purple-700 transition-colors flex items-center"onClick={handleOrderClick} >
-              <ShoppingCart className="h-5 w-5 mr-2" />
-              Add New Order
-            </button>
-            <button className="w-full text-left px-3 py-2 bg-teal-50 hover:bg-teal-100 rounded-lg text-teal-700 transition-colors flex items-center" onClick={handleNewCustomerFromDashboard}>
-              <Users className="h-5 w-5 mr-2" />
-              Register New Customer
-            </button>
           </div>
         </Card>
       </div>
