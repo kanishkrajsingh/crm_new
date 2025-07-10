@@ -1,6 +1,6 @@
 // src/pages/Billing.tsx
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Search, Filter, Download, Calendar, Save, ChevronDown } from 'lucide-react';
+import { CreditCard, Search, Filter, Download, Calendar, Save, ChevronDown, User } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
@@ -374,8 +374,8 @@ const Billing: React.FC = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
-                    <p className="mt-1 text-sm text-gray-500">Manage customer bills and track deliveries</p>
+                    <h1 className="text-3xl font-bold text-gray-900">Billing Management</h1>
+                    <p className="mt-2 text-sm text-gray-600">Manage customer bills and track monthly deliveries</p>
                 </div>
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 mt-3 sm:mt-0">
                     <Button
@@ -383,6 +383,7 @@ const Billing: React.FC = () => {
                         icon={<CreditCard size={16} />}
                         onClick={handleGenerateAllBills}
                         disabled={isGeneratingBills}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                     >
                         {isGeneratingBills ? (
                             <>
@@ -394,10 +395,11 @@ const Billing: React.FC = () => {
                         )}
                     </Button>
                     <Button
-                        variant="secondary"
+                        variant="success"
                         icon={<Save size={16} />}
                         onClick={handleSaveAllBillsToDB}
                         disabled={isSavingBills || isGeneratingBills}
+                        className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
                     >
                         {isSavingBills ? (
                             <>
@@ -418,8 +420,8 @@ const Billing: React.FC = () => {
                 }
             `}</style>
 
-            <Card>
-                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 mb-4">
+            <Card className="shadow-lg border-0">
+                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 mb-6">
                     <div className="relative flex-1">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search className="h-5 w-5 text-gray-400" />
@@ -427,7 +429,7 @@ const Billing: React.FC = () => {
                         <input
                             type="text"
                             placeholder="Search bills..."
-                            className="pl-10 pr-3 py-2 w-full border-gray-300 rounded-md"
+                            className="pl-10 pr-3 py-3 w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -440,7 +442,7 @@ const Billing: React.FC = () => {
                             </div>
                             <input
                                 type="month"
-                                className="pl-10 pr-3 py-2 w-full border-gray-300 rounded-md"
+                                className="pl-10 pr-3 py-3 w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 value={selectedMonth}
                                 onChange={(e) => setSelectedMonth(e.target.value)}
                             />
@@ -453,7 +455,7 @@ const Billing: React.FC = () => {
                                 <Filter className="h-5 w-5 text-gray-400" />
                             </div>
                             <select
-                                className="pl-10 pr-3 py-2 w-full border-gray-300 rounded-md"
+                                className="pl-10 pr-3 py-3 w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value as 'all' | 'paid' | 'unpaid')}
                             >
@@ -469,62 +471,69 @@ const Billing: React.FC = () => {
                         icon={<Download size={16} />}
                         className="sm:w-auto"
                     >
-                        Export
+                        Export Data
                     </Button>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                             <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Customer
+                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    Customer Details
                                 </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                     Type
                                 </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                     Total Cans
                                 </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                     Delivery Days
                                 </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                     Amount
                                 </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                     Status
                                 </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                     Actions
                                 </th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredBills.map((bill) => (
-                                <tr key={bill.customer_id} className="hover:bg-gray-50">
+                                <tr key={bill.customer_id} className="hover:bg-gray-50 transition-colors duration-200">
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div>
-                                            <div className="font-medium text-gray-900">{bill.name}</div>
-                                            <div className="text-sm text-gray-500">{bill.phone_number}</div>
+                                        <div className="flex items-center">
+                                            <div className="flex-shrink-0 h-10 w-10">
+                                                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center">
+                                                    <User className="h-5 w-5 text-white" />
+                                                </div>
+                                            </div>
+                                            <div className="ml-4">
+                                                <div className="text-sm font-semibold text-gray-900">{bill.name}</div>
+                                                <div className="text-sm text-gray-500">{bill.phone_number}</div>
+                                            </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                        {bill.customer_type}
+                                        <span className="font-medium capitalize">{bill.customer_type}</span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                        {bill.total_cans_delivered}
+                                        <span className="font-semibold text-blue-600">{bill.total_cans_delivered}</span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                        {bill.total_delivery_days}
+                                        <span className="font-semibold text-green-600">{bill.total_delivery_days}</span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                        ₹{bill.bill_amount}
+                                        <span className="font-bold text-purple-600">₹{bill.bill_amount}</span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="relative">
                                             <select
-                                                className={`px-3 py-1 text-xs leading-5 font-semibold rounded-full border-0 focus:ring-2 focus:ring-offset-2 cursor-pointer ${
+                                                className={`px-4 py-2 text-xs leading-5 font-semibold rounded-full border-0 focus:ring-2 focus:ring-offset-2 cursor-pointer transition-all duration-200 ${
                                                     bill.paid_status
                                                         ? 'bg-green-100 text-green-800 focus:ring-green-500'
                                                         : 'bg-red-100 text-red-800 focus:ring-red-500'
@@ -545,9 +554,10 @@ const Billing: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                                         <Button
-                                            variant="secondary"
+                                            variant="primary"
                                             size="sm"
                                             onClick={() => openLedger(bill)}
+                                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
                                         >
                                             View Ledger
                                         </Button>
@@ -559,10 +569,10 @@ const Billing: React.FC = () => {
 
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-                            <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded shadow-lg p-4 relative">
+                            <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl p-6 relative">
                                 <button
                                     onClick={() => setIsModalOpen(false)}
-                                    className="absolute top-2 right-2 text-gray-600 hover:text-black"
+                                    className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100 transition-colors"
                                 >
                                     ✖
                                 </button>
@@ -573,8 +583,12 @@ const Billing: React.FC = () => {
                 </div>
 
                 {filteredBills.length === 0 && (
-                    <div className="text-center py-10">
-                        <p className="text-gray-500">No bills found for the selected month.</p>
+                    <div className="text-center py-12">
+                        <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">No bills found</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                            No bills found for the selected month and criteria.
+                        </p>
                     </div>
                 )}
             </Card>

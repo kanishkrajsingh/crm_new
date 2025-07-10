@@ -97,16 +97,21 @@ const Settings: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-1 text-sm text-gray-500">Configure system-wide settings</p>
+        <h1 className="text-3xl font-bold text-gray-900">System Settings</h1>
+        <p className="mt-2 text-sm text-gray-600">Configure pricing and system-wide preferences</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="Can Pricing">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <Card className="shadow-lg border-0">
+          <div className="p-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+              <Save className="mr-2 h-6 w-6 text-blue-600" />
+              Can Pricing Configuration
+            </h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
-              <div className="flex items-center">
-                <label className="w-1/2 text-sm font-medium text-gray-700">Shop Customers</label>
+              <div className="flex items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg">
+                <label className="w-1/2 text-sm font-semibold text-gray-800">Shop Customers</label>
                 <div className="w-1/2 flex items-center">
                   <span className="mr-2 text-gray-500">₹</span>
                   <Input
@@ -115,12 +120,13 @@ const Settings: React.FC = () => {
                     step="0.01"
                     value={prices.shop.toString()}
                     onChange={(e) => handlePriceChange('shop', e.target.value)}
+                    className="focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
               
-              <div className="flex items-center">
-                <label className="w-1/2 text-sm font-medium text-gray-700">Monthly Customers</label>
+              <div className="flex items-center p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg">
+                <label className="w-1/2 text-sm font-semibold text-gray-800">Monthly Customers</label>
                 <div className="w-1/2 flex items-center">
                   <span className="mr-2 text-gray-500">₹</span>
                   <Input
@@ -129,12 +135,13 @@ const Settings: React.FC = () => {
                     step="0.01"
                     value={prices.monthly.toString()}
                     onChange={(e) => handlePriceChange('monthly', e.target.value)}
+                    className="focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
               
-              <div className="flex items-center">
-                <label className="w-1/2 text-sm font-medium text-gray-700">Order Customers</label>
+              <div className="flex items-center p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg">
+                <label className="w-1/2 text-sm font-semibold text-gray-800">Order Customers</label>
                 <div className="w-1/2 flex items-center">
                   <span className="mr-2 text-gray-500">₹</span>
                   <Input
@@ -143,29 +150,37 @@ const Settings: React.FC = () => {
                     step="0.01"
                     value={prices.order.toString()}
                     onChange={(e) => handlePriceChange('order', e.target.value)}
+                    className="focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
               </div>
             </div>
             
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-4">
               <Button 
                 type="submit" 
                 variant="primary"
                 icon={<Save size={16} />}
                 loading={loading}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
-                Save Pricing
+                {loading ? 'Saving...' : 'Update Pricing'}
               </Button>
             </div>
           </form>
+          </div>
         </Card>
         
-        <Card title="Delivery Charges">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <Card className="shadow-lg border-0">
+          <div className="p-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+              <Save className="mr-2 h-6 w-6 text-green-600" />
+              Delivery Charges Setup
+            </h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
-              <div className="flex items-center">
-                <label className="w-1/2 text-sm font-medium text-gray-700">Under 5 km</label>
+              <div className="flex items-center p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg">
+                <label className="w-1/2 text-sm font-semibold text-gray-800">Under 5 km</label>
                 <div className="w-1/2 flex items-center">
                   <span className="mr-2 text-gray-500">₹</span>
                   <Input
@@ -174,12 +189,13 @@ const Settings: React.FC = () => {
                     step="1"
                     value={deliveryCharges.under_5km.toString()}
                     onChange={(e) => handleDeliveryChargeChange('under_5km', e.target.value)}
+                    className="focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
               
-              <div className="flex items-center">
-                <label className="w-1/2 text-sm font-medium text-gray-700">5 - 10 km</label>
+              <div className="flex items-center p-4 bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg">
+                <label className="w-1/2 text-sm font-semibold text-gray-800">5 - 10 km</label>
                 <div className="w-1/2 flex items-center">
                   <span className="mr-2 text-gray-500">₹</span>
                   <Input
@@ -188,12 +204,13 @@ const Settings: React.FC = () => {
                     step="1"
                     value={deliveryCharges['5_10km'].toString()}
                     onChange={(e) => handleDeliveryChargeChange('5_10km', e.target.value)}
+                    className="focus:ring-2 focus:ring-yellow-500"
                   />
                 </div>
               </div>
               
-              <div className="flex items-center">
-                <label className="w-1/2 text-sm font-medium text-gray-700">Above 10 km</label>
+              <div className="flex items-center p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-lg">
+                <label className="w-1/2 text-sm font-semibold text-gray-800">Above 10 km</label>
                 <div className="w-1/2 flex items-center">
                   <span className="mr-2 text-gray-500">₹</span>
                   <Input
@@ -202,21 +219,24 @@ const Settings: React.FC = () => {
                     step="1"
                     value={deliveryCharges.above_10km.toString()}
                     onChange={(e) => handleDeliveryChargeChange('above_10km', e.target.value)}
+                    className="focus:ring-2 focus:ring-red-500"
                   />
                 </div>
               </div>
             </div>
             
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-4">
               <Button 
                 type="submit" 
                 variant="primary"
                 icon={<Save size={16} />}
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
               >
-                Save Charges
+                Update Charges
               </Button>
             </div>
           </form>
+          </div>
         </Card>
       </div>
     </div>
