@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Filter, Calendar, RefreshCw, Search } from 'lucide-react';
+import { Save, Filter, Calendar, RefreshCw, Search, User, Package } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { Customer, DailyUpdate as DailyUpdateType } from '../types';
@@ -9,7 +9,7 @@ import { toast } from 'react-hot-toast';
 interface DailyUpdateState {
   delivered: number | string;
   collected: number | string;
-  holding_status: number; // Ensure it's always a number, initialize appropriately
+  holding_status: number;
   notes: string;
 }
 
@@ -45,41 +45,34 @@ const DailyUpdate: React.FC = () => {
         const customersData: Customer[] = await customersResponse.json();
         setCustomers(customersData);
 
-        if (!initialUpdatesResponse.ok) {
-          console.warn('Failed to fetch initial daily updates:', await initialUpdatesResponse.text());
-          setUpdates(customersData.reduce((acc, customer) => ({
-            ...acc,
-            [customer.customer_id]: {
-              delivered: customer.can_qty,
-              collected: 0,
-              holding_status: customer.can_qty, // Initial holding status
-              notes: '',
-            },
-          }), {}));
-        } else {
-          const initialUpdatesData: DailyUpdateType[] = await initialUpdatesResponse.json();
-          const updatesMap: Record<string, DailyUpdateState> = customersData.reduce((acc, customer) => ({
-            ...acc,
-            [customer.customer_id]: {
-              delivered: customer.can_qty,
-              collected: 0,
-              holding_status: customer.can_qty, // Default if no update
-              notes: '',
-            },
-          }), {});
+        // Initialize updates map with default values
+        const defaultUpdatesMap: Record<string, DailyUpdateState> = customersData.reduce((acc, customer) => ({
+          ...acc,
+          [customer.customer_id]: {
+            delivered: customer.can_qty || 0,
+            collected: 0,
+            holding_status: customer.can_qty || 0,
+            notes: '',
+          },
+        }), {});
 
+        if (initialUpdatesResponse.ok) {
+          const initialUpdatesData: DailyUpdateType[] = await initialUpdatesResponse.json();
+          
+          // Update with existing data from API
           initialUpdatesData.forEach(update => {
-            if (updatesMap[update.customer_id]) {
-              updatesMap[update.customer_id] = {
+            if (defaultUpdatesMap[update.customer_id]) {
+              defaultUpdatesMap[update.customer_id] = {
                 delivered: update.delivered_qty,
                 collected: update.collected_qty,
-                holding_status: update.holding_status, // Get from API
-                notes: update.notes,
+                holding_status: update.holding_status,
+                notes: update.notes || '',
               };
             }
           });
-          setUpdates(updatesMap);
         }
+
+        setUpdates(defaultUpdatesMap);
       } catch (err: any) {
         setError(err.message);
         toast.error(err.message);
@@ -89,37 +82,41 @@ const DailyUpdate: React.FC = () => {
     };
 
     fetchInitialData();
-    fetchNextDayCollections(selectedDate); // Fetch next day's collection on date change
+    fetchNextDayCollections(selectedDate);
   }, [selectedDate]);
 
   const fetchNextDayCollections = async (date: string) => {
     try {
-      const response = await fetch(`/api/daily-can-status/next-collection?date=${date}`);
+      const response = await fetch(`/api/daily-updates/next-collection?date=${date}`);
       if (response.ok) {
         const data = await response.json();
         setNextDayCollections(data);
       } else {
-        console.warn('Failed to fetch next day collections:', await response.text());
+        console.warn('Failed to fetch next day collections');
         setNextDayCollections([]);
       }
     } catch (error) {
       console.error('Error fetching next day collections:', error);
-      toast.error('Failed to fetch next day collection information.');
       setNextDayCollections([]);
     }
   };
 
   const handleUpdateChange = (customerId: string, field: 'delivered' | 'collected' | 'notes', value: string) => {
     setUpdates(prev => {
-      const existing = prev[customerId] || { delivered: '', collected: '', holding_status: 0, notes: '' };
+      const existing = prev[customerId] || { delivered: 0, collected: 0, holding_status: 0, notes: '' };
       const updated = { ...existing, [field]: value };
 
-      const d = parseInt(updated.delivered as string) || 0;
-      const c = parseInt(updated.collected as string) || 0;
-      const customer = customers.find(cust => cust.customer_id === customerId);
-      const previousHolding = customer?.can_qty || 0;
-
-      updated.holding_status = previousHolding + d - c;
+      // Calculate holding status when delivered or collected changes
+      if (field === 'delivered' || field === 'collected') {
+        const deliveredQty = field === 'delivered' ? (parseInt(value) || 0) : (parseInt(existing.delivered as string) || 0);
+        const collectedQty = field === 'collected' ? (parseInt(value) || 0) : (parseInt(existing.collected as string) || 0);
+        
+        // Get previous day's holding status (for now, we'll use customer's can_qty as base)
+        const customer = customers.find(cust => cust.customer_id === customerId);
+        const baseHolding = customer?.can_qty || 0;
+        
+        updated.holding_status = baseHolding + deliveredQty - collectedQty;
+      }
 
       return {
         ...prev,
@@ -128,17 +125,13 @@ const DailyUpdate: React.FC = () => {
     });
   };
 
-
-
-
   const handleSaveSingleUpdate = async (customerId: string) => {
     setSavingCustomerId(customerId);
     const updateData = {
       customer_id: customerId,
       date: selectedDate,
-      delivered_qty: updates[customerId]?.delivered || 0,
-      collected_qty: updates[customerId]?.collected || 0,
-      holding_status: updates[customerId]?.holding_status || 0, // Send holding status
+      delivered_qty: parseInt(updates[customerId]?.delivered as string) || 0,
+      collected_qty: parseInt(updates[customerId]?.collected as string) || 0,
       notes: updates[customerId]?.notes || '',
     };
 
@@ -156,22 +149,28 @@ const DailyUpdate: React.FC = () => {
         throw new Error(errorData?.error || `Failed to save update for customer ${customerId}`);
       }
 
-      toast.success(`Update saved for ${customers.find(c => c.customer_id === customerId)?.name}!`);
-      // Optionally refetch data to update the UI with the saved holding status
-      fetch(`/api/daily-updates?date=${selectedDate}`)
-        .then(res => res.json())
-        .then(data => {
-          const updatedUpdatesMap: Record<string, DailyUpdateState> = {};
-          data.forEach((update: any) => {
+      const customerName = customers.find(c => c.customer_id === customerId)?.name || 'Customer';
+      toast.success(`Update saved for ${customerName}!`);
+      
+      // Refresh the data to get updated holding status
+      const refreshResponse = await fetch(`/api/daily-updates?date=${selectedDate}`);
+      if (refreshResponse.ok) {
+        const refreshedData: DailyUpdateType[] = await refreshResponse.json();
+        const updatedUpdatesMap = { ...updates };
+        
+        refreshedData.forEach((update: DailyUpdateType) => {
+          if (updatedUpdatesMap[update.customer_id]) {
             updatedUpdatesMap[update.customer_id] = {
               delivered: update.delivered_qty,
               collected: update.collected_qty,
               holding_status: update.holding_status,
-              notes: update.notes,
+              notes: update.notes || '',
             };
-          });
-          setUpdates(updatedUpdatesMap);
+          }
         });
+        
+        setUpdates(updatedUpdatesMap);
+      }
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -187,11 +186,20 @@ const DailyUpdate: React.FC = () => {
   });
 
   if (loading) {
-    return <div>Loading daily update data...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div>Error loading daily update data: {error}</div>;
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-600 text-lg font-semibold">Error loading daily update data: {error}</div>
+        <Button onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
+      </div>
+    );
   }
 
   return (
@@ -210,7 +218,7 @@ const DailyUpdate: React.FC = () => {
               className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              max={maxDate} // Added max attribute here
+              max={maxDate}
             />
           </div>
 
@@ -310,6 +318,7 @@ const DailyUpdate: React.FC = () => {
                       className="w-20 border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 px-2 py-1"
                       value={updates[customer.customer_id]?.delivered ?? ''}
                       onChange={(e) => handleUpdateChange(customer.customer_id, 'delivered', e.target.value)}
+                      placeholder="0"
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -319,18 +328,19 @@ const DailyUpdate: React.FC = () => {
                       className="w-20 border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 px-2 py-1"
                       value={updates[customer.customer_id]?.collected ?? ''}
                       onChange={(e) => handleUpdateChange(customer.customer_id, 'collected', e.target.value)}
+                      placeholder="0"
                     />
                   </td>
 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
-                      {updates[customer.customer_id]?.holding_status !== undefined ? updates[customer.customer_id]?.holding_status : customer.can_qty}
+                      {updates[customer.customer_id]?.holding_status ?? 0}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input
                       type="text"
-                      placeholder="Optional"
+                      placeholder="Optional notes..."
                       className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                       value={updates[customer.customer_id]?.notes || ''}
                       onChange={(e) => handleUpdateChange(customer.customer_id, 'notes', e.target.value)}
@@ -376,14 +386,14 @@ const DailyUpdate: React.FC = () => {
               Cans to Collect Tomorrow ({new Date(new Date(selectedDate).setDate(new Date(selectedDate).getDate() + 1)).toLocaleDateString()})
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {nextDayCollections.map(collection => (
-              <div key={collection.customer_id} className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
-                <div className="font-semibold text-gray-900">{collection.name}</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  <span className="font-bold text-blue-600">{collection.holding_status}</span> cans to collect
+              {nextDayCollections.map(collection => (
+                <div key={collection.customer_id} className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
+                  <div className="font-semibold text-gray-900">{collection.name}</div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    <span className="font-bold text-blue-600">{collection.holding_status}</span> cans to collect
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
             </div>
           </div>
         </Card>
