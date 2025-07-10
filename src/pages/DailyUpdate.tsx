@@ -197,17 +197,17 @@ const DailyUpdate: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Daily Can Update</h1>
-        <p className="mt-1 text-sm text-gray-500">Track daily can deliveries and collections</p>
+        <h1 className="text-3xl font-bold text-gray-900">Daily Can Management</h1>
+        <p className="mt-2 text-sm text-gray-600">Track daily can deliveries and collections with real-time updates</p>
       </div>
 
-      <Card>
-        <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-6">
+      <Card className="shadow-lg border-0">
+        <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-8">
           <div className="flex items-center">
             <Calendar className="h-5 w-5 text-gray-400 mr-2" />
             <input
               type="date"
-              className="border-gray-300 rounded-md"
+              className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               max={maxDate} // Added max attribute here
@@ -221,7 +221,7 @@ const DailyUpdate: React.FC = () => {
             <input
               type="text"
               placeholder="Search by name or phone..."
-              className="pl-10 pr-3 py-2 w-full border-gray-300 rounded-md"
+              className="pl-10 pr-3 py-3 w-full border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -230,7 +230,7 @@ const DailyUpdate: React.FC = () => {
           <div className="flex items-center">
             <Filter className="h-5 w-5 text-gray-400 mr-2" />
             <select
-              className="border-gray-300 rounded-md"
+              className="border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 px-3 py-2"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
             >
@@ -244,60 +244,70 @@ const DailyUpdate: React.FC = () => {
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
+                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Customer Details
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Type
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Phone
                 </th>
-                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   <div className="flex items-center justify-center">
                     <span className="mr-1">Delivered</span>
                     <RefreshCw className="h-3 w-3 text-blue-500" />
                   </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   <div className="flex items-center justify-center">
                     <span className="mr-1">Collected</span>
                     <RefreshCw className="h-3 w-3 text-green-500" />
                   </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Holding
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Notes
                 </th>
-                <th scope="col" className="relative px-6 py-3">
+                <th scope="col" className="relative px-6 py-4">
                   <span className="sr-only">Save</span>
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer) => (
-                <tr key={customer.customer_id}>
+                <tr key={customer.customer_id} className="hover:bg-gray-50 transition-colors duration-200">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{customer.name}</div>
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-10 w-10">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center">
+                          <User className="h-5 w-5 text-white" />
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-semibold text-gray-900">{customer.name}</div>
+                        <div className="text-sm text-gray-500">ID: {customer.customer_id}</div>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-700">
+                    <span className="text-sm font-medium text-gray-700">
                       {getCustomerTypeLabel(customer.customer_type)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {customer.phone_number}
+                    <div className="font-medium">{customer.phone_number}</div>
                   </td>
 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <input
                       type="number"
                       min="0"
-                      className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ring-1 ring-gray-300"
+                      className="w-20 border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500 px-2 py-1"
                       value={updates[customer.customer_id]?.delivered ?? ''}
                       onChange={(e) => handleUpdateChange(customer.customer_id, 'delivered', e.target.value)}
                     />
@@ -306,14 +316,14 @@ const DailyUpdate: React.FC = () => {
                     <input
                       type="number"
                       min="0"
-                      className="w-16 border-gray-300 rounded-md text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 ring-1 ring-gray-300"
+                      className="w-20 border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-green-500 focus:border-green-500 px-2 py-1"
                       value={updates[customer.customer_id]?.collected ?? ''}
                       onChange={(e) => handleUpdateChange(customer.customer_id, 'collected', e.target.value)}
                     />
                   </td>
 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className="text-sm text-gray-700">
+                    <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
                       {updates[customer.customer_id]?.holding_status !== undefined ? updates[customer.customer_id]?.holding_status : customer.can_qty}
                     </span>
                   </td>
@@ -321,21 +331,22 @@ const DailyUpdate: React.FC = () => {
                     <input
                       type="text"
                       placeholder="Optional"
-                      className="w-full border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ring-1 ring-gray-300"
+                      className="w-full border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                       value={updates[customer.customer_id]?.notes || ''}
                       onChange={(e) => handleUpdateChange(customer.customer_id, 'notes', e.target.value)}
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <Button
-                      variant="secondary"
+                      variant="primary"
                       size="sm"
                       icon={<Save size={14} />}
                       onClick={() => handleSaveSingleUpdate(customer.customer_id)}
                       loading={savingCustomerId === customer.customer_id}
                       disabled={savingCustomerId === customer.customer_id}
+                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
                     >
-                      Save
+                      {savingCustomerId === customer.customer_id ? 'Saving...' : 'Save'}
                     </Button>
                   </td>
                 </tr>
@@ -345,22 +356,36 @@ const DailyUpdate: React.FC = () => {
         </div>
 
         {filteredCustomers.length === 0 && !loading && (
-          <div className="text-center py-10">
-            <p className="text-gray-500">No customers found matching the selected criteria.</p>
+          <div className="text-center py-12">
+            <RefreshCw className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No customers found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchTerm || filterType !== 'all' 
+                ? 'Try adjusting your search or filter criteria.' 
+                : 'No customers available for the selected date.'}
+            </p>
           </div>
         )}
       </Card>
 
       {nextDayCollections.length > 0 && (
-        <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Cans to Collect on {new Date(new Date(selectedDate).setDate(new Date(selectedDate).getDate() + 1)).toLocaleDateString()}</h2>
-          <ul>
+        <Card className="shadow-lg border-0 bg-gradient-to-r from-blue-50 to-purple-50">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+              <Package className="mr-2 h-6 w-6 text-blue-600" />
+              Cans to Collect Tomorrow ({new Date(new Date(selectedDate).setDate(new Date(selectedDate).getDate() + 1)).toLocaleDateString()})
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {nextDayCollections.map(collection => (
-              <li key={collection.customer_id} className="py-2">
-                {collection.name}: <span className="font-semibold">{collection.holding_status}</span> cans
-              </li>
+              <div key={collection.customer_id} className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
+                <div className="font-semibold text-gray-900">{collection.name}</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  <span className="font-bold text-blue-600">{collection.holding_status}</span> cans to collect
+                </div>
+              </div>
             ))}
-          </ul>
+            </div>
+          </div>
         </Card>
       )}
     </div>

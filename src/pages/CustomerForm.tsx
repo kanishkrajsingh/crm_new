@@ -148,24 +148,30 @@ const CustomerForm: React.FC<CustomerFormProps> = () => {
           onClick={() => navigate('/customers')}
           
         >
-          Back
+          Back to Customers
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-gray-900">
             {isEditing ? 'Edit Customer' : 'Add New Customer'}
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-gray-600">
             {isEditing
-              ? 'Update customer information'
-              : 'Create a new customer record'
+              ? 'Update customer information and preferences'
+              : 'Create a new customer record with complete details'
             }
           </p>
         </div>
       </div>
 
-      <Card>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <Card className="shadow-lg border-0">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Customer Information Section */}
+          <div className="border-b border-gray-200 pb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Save className="mr-2 h-5 w-5 text-blue-600" />
+              Customer Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="Customer Name"
               id="name"
@@ -174,6 +180,7 @@ const CustomerForm: React.FC<CustomerFormProps> = () => {
               onChange={handleChange}
               error={errors.name}
               required
+              className="focus:ring-2 focus:ring-blue-500"
             />
             <Select
               label="Customer Type"
@@ -187,7 +194,18 @@ const CustomerForm: React.FC<CustomerFormProps> = () => {
               ]}
               error={errors.customer_type}
               required
+              className="focus:ring-2 focus:ring-blue-500"
             />
+            </div>
+          </div>
+
+          {/* Contact Information Section */}
+          <div className="border-b border-gray-200 pb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Save className="mr-2 h-5 w-5 text-green-600" />
+              Contact Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="Phone Number"
               id="phone_number"
@@ -197,6 +215,7 @@ const CustomerForm: React.FC<CustomerFormProps> = () => {
               error={errors.phone_number}
               helper="10-digit mobile number"
               required
+              className="focus:ring-2 focus:ring-green-500"
             />
             <Input
               label="Alternate Number (Optional)"
@@ -205,6 +224,7 @@ const CustomerForm: React.FC<CustomerFormProps> = () => {
               value={formData.alternate_number}
               onChange={handleChange}
               helper="Secondary contact number"
+              className="focus:ring-2 focus:ring-green-500"
             />
             <div className="md:col-span-2">
               <Input
@@ -215,12 +235,20 @@ const CustomerForm: React.FC<CustomerFormProps> = () => {
                 onChange={handleChange}
                 error={errors.address}
                 required
+                className="focus:ring-2 focus:ring-green-500"
               />
             </div>
+            </div>
+          </div>
 
-            {(formData.customer_type === 'monthly' ||
-              formData.customer_type === 'shop') && (
-              <>
+          {/* Business Details Section */}
+          {(formData.customer_type === 'monthly' || formData.customer_type === 'shop') && (
+            <div className="border-b border-gray-200 pb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Save className="mr-2 h-5 w-5 text-purple-600" />
+                Business Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input
                   label="Initial Can Quantity"
                   id="can_qty"
@@ -231,6 +259,7 @@ const CustomerForm: React.FC<CustomerFormProps> = () => {
                   onChange={handleChange}
                   error={errors.can_qty}
                   required
+                  className="focus:ring-2 focus:ring-purple-500"
                 />
                 <Input
                   label="Advance Amount (₹)"
@@ -241,22 +270,29 @@ const CustomerForm: React.FC<CustomerFormProps> = () => {
                   value={formData.advance_amount?.toString() || ''}
                   onChange={handleChange}
                   error={errors.advance_amount}
+                  className="focus:ring-2 focus:ring-purple-500"
                 />
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
 
-          <div className="flex justify-end">
+          <div className="flex justify-end space-x-3 pt-6">
             <Button
               type="button"
               variant="secondary"
-              className="mr-3"
+              className="px-6"
               onClick={() => navigate('/customers')}
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" icon={<Save size={16} />}>
-              {isEditing ? 'Update Customer' : 'Save Customer'}
+            <Button 
+              type="submit" 
+              variant="primary" 
+              icon={<Save size={16} />}
+              disabled={loading}
+              className="px-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            >
+              {loading ? 'Saving...' : (isEditing ? 'Update Customer' : 'Create Customer')}
             </Button>
           </div>
         </form>

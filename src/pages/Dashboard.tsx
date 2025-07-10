@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { 
-  //TrendingUp, 
+  TrendingUp, 
   Users, 
   Package, 
   RefreshCw, 
   ShoppingCart,
-  Clock
+  Clock,
+  Plus,
+  Calendar,
+  BarChart3
 } from 'lucide-react';
 import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
 
 
 const Dashboard: React.FC = () => {
@@ -108,17 +112,17 @@ const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">An overview of your RO water business</p>
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p className="mt-2 text-sm text-gray-600">An overview of your RO water business performance</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {statCards.map((card, index) => (
-          <Card key={index} className="transition-all hover:shadow-md">
-            <div className="flex justify-between items-start">
+          <Card key={index} className="transition-all duration-300 hover:shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+            <div className="flex justify-between items-start p-6">
               <div>
-                <p className="text-sm font-medium text-gray-500">{card.title}</p>
-                <p className="mt-1 text-3xl font-semibold text-gray-900">{card.value}</p>
+                <p className="text-sm font-semibold text-gray-600 uppercase tracking-wider">{card.title}</p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">{card.value}</p>
                 <p className={`mt-1 text-sm ${
                   card.trend === 'up' ? 'text-green-600' : 
                   card.trend === 'down' ? 'text-red-600' : 
@@ -127,7 +131,7 @@ const Dashboard: React.FC = () => {
                   {card.change}
                 </p>
               </div>
-              <div className="p-3 bg-gray-50 rounded-full">
+              <div className="p-3 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl">
                 {card.icon}
               </div>
             </div>
@@ -136,53 +140,99 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card 
-          title="Recent Activity" 
-          className="lg:col-span-2"
-        >
-          <div className="space-y-4">
+        <Card className="lg:col-span-2 shadow-lg border-0">
+          <div className="p-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+              <BarChart3 className="mr-2 h-6 w-6 text-blue-600" />
+              Recent Activity
+            </h3>
+            <div className="space-y-4">
             <div className="flex items-center pb-4 border-b border-gray-100">
-              <div className="p-2 bg-blue-100 rounded-full mr-3">
+              <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl mr-4">
                 <Package className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <p className="font-medium">10 cans delivered to Sunset Cafe</p>
+                <p className="font-semibold text-gray-900">10 cans delivered to Sunset Cafe</p>
                 <p className="text-sm text-gray-500">Today, 9:45 AM</p>
               </div>
             </div>
             <div className="flex items-center pb-4 border-b border-gray-100">
-              <div className="p-2 bg-green-100 rounded-full mr-3">
+              <div className="p-3 bg-gradient-to-br from-green-100 to-green-200 rounded-xl mr-4">
                 <RefreshCw className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <p className="font-medium">8 cans collected from Royal Restaurant</p>
+                <p className="font-semibold text-gray-900">8 cans collected from Royal Restaurant</p>
                 <p className="text-sm text-gray-500">Today, 11:20 AM</p>
               </div>
             </div>
             <div className="flex items-center pb-4 border-b border-gray-100">
-              <div className="p-2 bg-teal-100 rounded-full mr-3">
+              <div className="p-3 bg-gradient-to-br from-teal-100 to-teal-200 rounded-xl mr-4">
                 <Users className="h-5 w-5 text-teal-600" />
               </div>
               <div>
-                <p className="font-medium">New monthly customer added: Ramesh Patil</p>
+                <p className="font-semibold text-gray-900">New monthly customer added: Ramesh Patil</p>
                 <p className="text-sm text-gray-500">Today, 1:30 PM</p>
               </div>
             </div>
             <div className="flex items-center">
-              <div className="p-2 bg-orange-100 rounded-full mr-3">
+              <div className="p-3 bg-gradient-to-br from-orange-100 to-orange-200 rounded-xl mr-4">
                 <ShoppingCart className="h-5 w-5 text-orange-600" />
               </div>
               <div>
-                <p className="font-medium">New order from Green Valley Apartments</p>
+                <p className="font-semibold text-gray-900">New order from Green Valley Apartments</p>
                 <p className="text-sm text-gray-500">Today, 3:15 PM</p>
               </div>
+            </div>
             </div>
           </div>
         </Card>
         
-        <Card title="Quick Tasks">
-          <div className="space-y-3">
-            <button className="w-full text-left px-3 py-2 bg-blue-50 hover:bg-blue-100 rounded-lg text-blue-700 transition-colors flex items-center">
+        <Card className="shadow-lg border-0">
+          <div className="p-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+              <TrendingUp className="mr-2 h-6 w-6 text-purple-600" />
+              Quick Actions
+            </h3>
+            <div className="space-y-3">
+            <Button
+              variant="secondary"
+              className="w-full justify-start bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 transition-all duration-200"
+              icon={<Package className="h-5 w-5" />}
+            >
+              Record Today's Delivery
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full justify-start bg-green-50 hover:bg-green-100 text-green-700 border-green-200 transition-all duration-200"
+              icon={<RefreshCw className="h-5 w-5" />}
+            >
+              Update Can Collection
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full justify-start bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 transition-all duration-200"
+              icon={<ShoppingCart className="h-5 w-5" />}
+              onClick={handleOrderClick}
+            >
+              Add New Order
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full justify-start bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200 transition-all duration-200"
+              icon={<Users className="h-5 w-5" />}
+              onClick={handleNewCustomerFromDashboard}
+            >
+              Register New Customer
+            </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
               <Package className="h-5 w-5 mr-2" />
               Record Today's Delivery
               
