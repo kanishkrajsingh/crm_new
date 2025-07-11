@@ -9,7 +9,7 @@ import { toast } from 'react-hot-toast';
 interface DailyUpdateState {
   delivered: number | string;
   collected: number | string;
-  holding_status: number; // Ensure it's always a number, initialize appropriately
+  holding_status: number;
   notes: string;
 }
 
@@ -28,14 +28,22 @@ const DailyUpdate: React.FC = () => {
   // Calculate the maximum allowed date (today)
   const maxDate = new Date().toISOString().split('T')[0];
 
+  // Function to get the previous day's date in YYYY-MM-DD format
+  const getPreviousDay = (dateString: string): string => {
+    const date = new Date(dateString);
+    date.setDate(date.getDate() - 1);
+    return date.toISOString().split('T')[0];
+  };
+
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [customersResponse, initialUpdatesResponse] = await Promise.all([
+        const [customersResponse, initialUpdatesResponse, previousDayUpdatesResponse] = await Promise.all([
           fetch('/api/customers'),
           fetch(`/api/daily-updates?date=${selectedDate}`),
+          fetch(`/api/daily-updates?date=${getPreviousDay(selectedDate)}`),
         ]);
 
         if (!customersResponse.ok) {
@@ -45,41 +53,54 @@ const DailyUpdate: React.FC = () => {
         const customersData: Customer[] = await customersResponse.json();
         setCustomers(customersData);
 
-        if (!initialUpdatesResponse.ok) {
-          console.warn('Failed to fetch initial daily updates:', await initialUpdatesResponse.text());
-          setUpdates(customersData.reduce((acc, customer) => ({
-            ...acc,
-            [customer.customer_id]: {
-              delivered: customer.can_qty || 0,
-              collected: 0,
-              holding_status: customer.can_qty || 0, // Initial holding status
-              notes: '',
-            },
-          }), {}));
-        } else {
+        // Fetch previous day's updates to get holding status
+        const previousDayUpdatesData: DailyUpdateType[] = previousDayUpdatesResponse.ok ? await previousDayUpdatesResponse.json() : [];
+        const previousDayHolding: Record<string, number> = {};
+        previousDayUpdatesData.forEach(update => {
+          previousDayHolding[update.customer_id] = update.holding_status;
+        });
+
+        let initialUpdatesMap: Record<string, DailyUpdateState> = {};
+        if (initialUpdatesResponse.ok) {
           const initialUpdatesData: DailyUpdateType[] = await initialUpdatesResponse.json();
-          const updatesMap: Record<string, DailyUpdateState> = customersData.reduce((acc, customer) => ({
+          initialUpdatesMap = initialUpdatesData.reduce((acc, update) => ({
             ...acc,
-            [customer.customer_id]: {
-              delivered: customer.can_qty || 0,
-              collected: 0,
-              holding_status: customer.can_qty || 0, // Default if no update
-              notes: '',
+            [update.customer_id]: {
+              delivered: update.delivered_qty,
+              collected: update.collected_qty,
+              holding_status: update.holding_status,
+              notes: update.notes || '',
             },
           }), {});
-
-          initialUpdatesData.forEach(update => {
-            if (updatesMap[update.customer_id]) {
-              updatesMap[update.customer_id] = {
-                delivered: update.delivered_qty,
-                collected: update.collected_qty,
-                holding_status: update.holding_status, // Get from API
-                notes: update.notes || '',
-              };
-            }
-          });
-          setUpdates(updatesMap);
         }
+
+        // Initialize updates with defaults for all customers
+        const initialUpdatesWithDefaults: Record<string, DailyUpdateState> = customersData.reduce((acc, customer) => {
+          const existingUpdate = initialUpdatesMap[customer.customer_id];
+          const initialDelivered = existingUpdate?.delivered !== undefined ? existingUpdate.delivered : customer.can_qty || 0;
+          const initialCollected = existingUpdate?.collected !== undefined ? existingUpdate.collected : 0;
+          
+          // Calculate holding status: previous day's holding + delivered - collected
+          const previousHolding = previousDayHolding[customer.customer_id] || 0;
+          const initialHolding = existingUpdate?.holding_status !== undefined ? 
+            existingUpdate.holding_status : 
+            previousHolding + (typeof initialDelivered === 'number' ? initialDelivered : parseInt(initialDelivered as string) || 0) - (typeof initialCollected === 'number' ? initialCollected : parseInt(initialCollected as string) || 0);
+          
+          const initialNotes = existingUpdate?.notes || '';
+
+          return {
+            ...acc,
+            [customer.customer_id]: {
+              delivered: initialDelivered,
+              collected: initialCollected,
+              holding_status: initialHolding,
+              notes: initialNotes,
+            },
+          };
+        }, {});
+        
+        setUpdates(initialUpdatesWithDefaults);
+
       } catch (err: any) {
         setError(err.message);
         toast.error(err.message);
@@ -89,7 +110,7 @@ const DailyUpdate: React.FC = () => {
     };
 
     fetchInitialData();
-    fetchNextDayCollections(selectedDate); // Fetch next day's collection on date change
+    fetchNextDayCollections(selectedDate);
   }, [selectedDate]);
 
   const getCustomerTypeIcon = (type: CustomerType) => {
@@ -118,22 +139,59 @@ const DailyUpdate: React.FC = () => {
     }
   };
 
-  const handleUpdateChange = (customerId: string, field: 'delivered' | 'collected' | 'notes', value: string) => {
+  const handleUpdateChange = async (customerId: string, field: 'delivered' | 'collected' | 'notes', value: string) => {
     setUpdates(prev => {
-      const existing = prev[customerId] || { delivered: '', collected: '', holding_status: 0, notes: '' };
-      const updated = { ...existing, [field]: value };
+      const customerUpdates = prev[customerId] || { delivered: 0, collected: 0, holding_status: 0, notes: '' };
+      let newDelivered = customerUpdates.delivered;
+      let newCollected = customerUpdates.collected;
 
-      const d = parseInt(updated.delivered as string) || 0;
-      const c = parseInt(updated.collected as string) || 0;
-      const customer = customers.find(cust => cust.customer_id === customerId);
-      const previousHolding = customer?.can_qty || 0;
+      if (field === 'delivered') {
+        newDelivered = value === '' ? 0 : parseInt(value, 10);
+      } else if (field === 'collected') {
+        newCollected = value === '' ? 0 : parseInt(value, 10);
+      }
 
-      // This is your original logic - holding status calculation
-      updated.holding_status = previousHolding + d - c;
+      // Fetch the holding status from the previous day
+      const fetchPreviousHolding = async () => {
+        try {
+          const previousDay = getPreviousDay(selectedDate);
+          const response = await fetch(`/api/daily-updates?date=${previousDay}`);
+          if (response.ok) {
+            const previousDayData: DailyUpdateType[] = await response.json();
+            const previousUpdate = previousDayData.find(update => update.customer_id === customerId);
+            return previousUpdate ? previousUpdate.holding_status : 0;
+          }
+        } catch (error) {
+          console.error('Error fetching previous day holding:', error);
+        }
+        return 0;
+      };
+
+      // Calculate new holding status: previous day's holding + delivered - collected
+      fetchPreviousHolding().then(previousHolding => {
+        const deliveredChange = (typeof newDelivered === 'number' ? newDelivered : parseInt(newDelivered as string) || 0) - (typeof customerUpdates.delivered === 'number' ? customerUpdates.delivered : parseInt(customerUpdates.delivered as string) || 0);
+        const collectedChange = (typeof newCollected === 'number' ? newCollected : parseInt(newCollected as string) || 0) - (typeof customerUpdates.collected === 'number' ? customerUpdates.collected : parseInt(customerUpdates.collected as string) || 0);
+        const newHoldingStatus = previousHolding + (typeof newDelivered === 'number' ? newDelivered : parseInt(newDelivered as string) || 0) - (typeof newCollected === 'number' ? newCollected : parseInt(newCollected as string) || 0);
+
+        setUpdates(prevUpdates => ({
+          ...prevUpdates,
+          [customerId]: {
+            delivered: newDelivered,
+            collected: newCollected,
+            holding_status: isNaN(newHoldingStatus) ? 0 : newHoldingStatus,
+            notes: field === 'notes' ? value : customerUpdates.notes,
+          },
+        }));
+      });
 
       return {
         ...prev,
-        [customerId]: updated,
+        [customerId]: {
+          delivered: newDelivered,
+          collected: newCollected,
+          holding_status: customerUpdates.holding_status, // Will be updated by the async call above
+          notes: field === 'notes' ? value : customerUpdates.notes,
+        },
       };
     });
   };
@@ -145,7 +203,7 @@ const DailyUpdate: React.FC = () => {
       date: selectedDate,
       delivered_qty: updates[customerId]?.delivered || 0,
       collected_qty: updates[customerId]?.collected || 0,
-      holding_status: updates[customerId]?.holding_status || 0, // Send holding status
+      holding_status: updates[customerId]?.holding_status || 0,
       notes: updates[customerId]?.notes || '',
     };
 
@@ -164,21 +222,20 @@ const DailyUpdate: React.FC = () => {
       }
 
       toast.success(`Update saved for ${customers.find(c => c.customer_id === customerId)?.name}!`);
-      // Optionally refetch data to update the UI with the saved holding status
-      fetch(`/api/daily-updates?date=${selectedDate}`)
-        .then(res => res.json())
-        .then(data => {
-          const updatedUpdatesMap: Record<string, DailyUpdateState> = {};
-          data.forEach((update: any) => {
-            updatedUpdatesMap[update.customer_id] = {
-              delivered: update.delivered_qty,
-              collected: update.collected_qty,
-              holding_status: update.holding_status,
-              notes: update.notes || '',
-            };
-          });
-          setUpdates(updatedUpdatesMap);
-        });
+
+      // Refresh the data to get updated holding status
+      setUpdates((prevUpdates) => {
+        const updatedUpdates = { ...prevUpdates };
+        updatedUpdates[customerId] = {
+          ...updatedUpdates[customerId],
+          delivered: updateData.delivered_qty,
+          collected: updateData.collected_qty,
+          holding_status: updateData.holding_status,
+          notes: updateData.notes,
+        };
+        return updatedUpdates;
+      });
+
     } catch (err: any) {
       toast.error(err.message);
     } finally {
