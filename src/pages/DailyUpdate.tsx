@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Filter, Calendar, RefreshCw, Search, User, Package } from 'lucide-react';
+import { Save, Filter, Calendar, RefreshCw, Search, Store, User, Package } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import { Customer, DailyUpdate as DailyUpdateType } from '../types';
+import { Customer, CustomerType, DailyUpdate as DailyUpdateType } from '../types';
 import { useApp } from '../context/AppContext';
 import { toast } from 'react-hot-toast';
 
 interface DailyUpdateState {
   delivered: number | string;
   collected: number | string;
-  holding_status: number;
+  holding_status: number; // Ensure it's always a number, initialize appropriately
   notes: string;
 }
 
@@ -45,34 +45,41 @@ const DailyUpdate: React.FC = () => {
         const customersData: Customer[] = await customersResponse.json();
         setCustomers(customersData);
 
-        // Initialize updates map with default values
-        const defaultUpdatesMap: Record<string, DailyUpdateState> = customersData.reduce((acc, customer) => ({
-          ...acc,
-          [customer.customer_id]: {
-            delivered: customer.can_qty || 0,
-            collected: 0,
-            holding_status: customer.can_qty || 0,
-            notes: '',
-          },
-        }), {});
-
-        if (initialUpdatesResponse.ok) {
+        if (!initialUpdatesResponse.ok) {
+          console.warn('Failed to fetch initial daily updates:', await initialUpdatesResponse.text());
+          setUpdates(customersData.reduce((acc, customer) => ({
+            ...acc,
+            [customer.customer_id]: {
+              delivered: customer.can_qty || 0,
+              collected: 0,
+              holding_status: customer.can_qty || 0, // Initial holding status
+              notes: '',
+            },
+          }), {}));
+        } else {
           const initialUpdatesData: DailyUpdateType[] = await initialUpdatesResponse.json();
-          
-          // Update with existing data from API
+          const updatesMap: Record<string, DailyUpdateState> = customersData.reduce((acc, customer) => ({
+            ...acc,
+            [customer.customer_id]: {
+              delivered: customer.can_qty || 0,
+              collected: 0,
+              holding_status: customer.can_qty || 0, // Default if no update
+              notes: '',
+            },
+          }), {});
+
           initialUpdatesData.forEach(update => {
-            if (defaultUpdatesMap[update.customer_id]) {
-              defaultUpdatesMap[update.customer_id] = {
+            if (updatesMap[update.customer_id]) {
+              updatesMap[update.customer_id] = {
                 delivered: update.delivered_qty,
                 collected: update.collected_qty,
-                holding_status: update.holding_status,
+                holding_status: update.holding_status, // Get from API
                 notes: update.notes || '',
               };
             }
           });
+          setUpdates(updatesMap);
         }
-
-        setUpdates(defaultUpdatesMap);
       } catch (err: any) {
         setError(err.message);
         toast.error(err.message);
@@ -82,17 +89,27 @@ const DailyUpdate: React.FC = () => {
     };
 
     fetchInitialData();
-    fetchNextDayCollections(selectedDate);
+    fetchNextDayCollections(selectedDate); // Fetch next day's collection on date change
   }, [selectedDate]);
+
+  const getCustomerTypeIcon = (type: CustomerType) => {
+    switch (type) {
+        case 'monthly': return <Calendar className="h-4 w-4 text-green-500" />;
+        case 'shop': return <Store className="h-4 w-4 text-blue-500" />;
+        case 'order': return <User className="h-4 w-4 text-orange-500" />;
+    }
+  };
 
   const fetchNextDayCollections = async (date: string) => {
     try {
       const response = await fetch(`/api/daily-updates/next-collection?date=${date}`);
       if (response.ok) {
         const data = await response.json();
-        setNextDayCollections(data);
+        // Filter to show only customers with holding_status > 0 (those who have cans to return)
+        const customersWithPendingCans = data.filter((collection: any) => collection.holding_status > 0);
+        setNextDayCollections(customersWithPendingCans);
       } else {
-        console.warn('Failed to fetch next day collections');
+        console.warn('Failed to fetch next day collections:', await response.text());
         setNextDayCollections([]);
       }
     } catch (error) {
@@ -103,20 +120,16 @@ const DailyUpdate: React.FC = () => {
 
   const handleUpdateChange = (customerId: string, field: 'delivered' | 'collected' | 'notes', value: string) => {
     setUpdates(prev => {
-      const existing = prev[customerId] || { delivered: 0, collected: 0, holding_status: 0, notes: '' };
+      const existing = prev[customerId] || { delivered: '', collected: '', holding_status: 0, notes: '' };
       const updated = { ...existing, [field]: value };
 
-      // Calculate holding status when delivered or collected changes
-      if (field === 'delivered' || field === 'collected') {
-        const deliveredQty = field === 'delivered' ? (parseInt(value) || 0) : (parseInt(existing.delivered as string) || 0);
-        const collectedQty = field === 'collected' ? (parseInt(value) || 0) : (parseInt(existing.collected as string) || 0);
-        
-        // Get previous day's holding status (for now, we'll use customer's can_qty as base)
-        const customer = customers.find(cust => cust.customer_id === customerId);
-        const baseHolding = customer?.can_qty || 0;
-        
-        updated.holding_status = baseHolding + deliveredQty - collectedQty;
-      }
+      const d = parseInt(updated.delivered as string) || 0;
+      const c = parseInt(updated.collected as string) || 0;
+      const customer = customers.find(cust => cust.customer_id === customerId);
+      const previousHolding = customer?.can_qty || 0;
+
+      // This is your original logic - holding status calculation
+      updated.holding_status = previousHolding + d - c;
 
       return {
         ...prev,
@@ -130,8 +143,9 @@ const DailyUpdate: React.FC = () => {
     const updateData = {
       customer_id: customerId,
       date: selectedDate,
-      delivered_qty: parseInt(updates[customerId]?.delivered as string) || 0,
-      collected_qty: parseInt(updates[customerId]?.collected as string) || 0,
+      delivered_qty: updates[customerId]?.delivered || 0,
+      collected_qty: updates[customerId]?.collected || 0,
+      holding_status: updates[customerId]?.holding_status || 0, // Send holding status
       notes: updates[customerId]?.notes || '',
     };
 
@@ -149,28 +163,22 @@ const DailyUpdate: React.FC = () => {
         throw new Error(errorData?.error || `Failed to save update for customer ${customerId}`);
       }
 
-      const customerName = customers.find(c => c.customer_id === customerId)?.name || 'Customer';
-      toast.success(`Update saved for ${customerName}!`);
-      
-      // Refresh the data to get updated holding status
-      const refreshResponse = await fetch(`/api/daily-updates?date=${selectedDate}`);
-      if (refreshResponse.ok) {
-        const refreshedData: DailyUpdateType[] = await refreshResponse.json();
-        const updatedUpdatesMap = { ...updates };
-        
-        refreshedData.forEach((update: DailyUpdateType) => {
-          if (updatedUpdatesMap[update.customer_id]) {
+      toast.success(`Update saved for ${customers.find(c => c.customer_id === customerId)?.name}!`);
+      // Optionally refetch data to update the UI with the saved holding status
+      fetch(`/api/daily-updates?date=${selectedDate}`)
+        .then(res => res.json())
+        .then(data => {
+          const updatedUpdatesMap: Record<string, DailyUpdateState> = {};
+          data.forEach((update: any) => {
             updatedUpdatesMap[update.customer_id] = {
               delivered: update.delivered_qty,
               collected: update.collected_qty,
               holding_status: update.holding_status,
               notes: update.notes || '',
             };
-          }
+          });
+          setUpdates(updatedUpdatesMap);
         });
-        
-        setUpdates(updatedUpdatesMap);
-      }
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -303,9 +311,12 @@ const DailyUpdate: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-medium text-gray-700">
-                      {getCustomerTypeLabel(customer.customer_type)}
-                    </span>
+                    <div className="flex items-center">
+                      {getCustomerTypeIcon(customer.customer_type)}
+                      <span className="ml-2 text-sm font-medium text-gray-700">
+                        {getCustomerTypeLabel(customer.customer_type)}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                     <div className="font-medium">{customer.phone_number}</div>
@@ -334,7 +345,7 @@ const DailyUpdate: React.FC = () => {
 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
-                      {updates[customer.customer_id]?.holding_status ?? 0}
+                      {updates[customer.customer_id]?.holding_status !== undefined ? updates[customer.customer_id]?.holding_status : customer.can_qty}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -379,21 +390,26 @@ const DailyUpdate: React.FC = () => {
       </Card>
 
       {nextDayCollections.length > 0 && (
-        <Card className="shadow-lg border-0 bg-gradient-to-r from-blue-50 to-purple-50">
+        <Card className="shadow-lg border-0 bg-gradient-to-r from-orange-50 to-red-50">
           <div className="p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-              <Package className="mr-2 h-6 w-6 text-blue-600" />
+              <Package className="mr-2 h-6 w-6 text-orange-600" />
               Cans to Collect Tomorrow ({new Date(new Date(selectedDate).setDate(new Date(selectedDate).getDate() + 1)).toLocaleDateString()})
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {nextDayCollections.map(collection => (
-                <div key={collection.customer_id} className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
+                <div key={collection.customer_id} className="bg-white p-4 rounded-lg shadow-sm border border-orange-200">
                   <div className="font-semibold text-gray-900">{collection.name}</div>
                   <div className="text-sm text-gray-600 mt-1">
-                    <span className="font-bold text-blue-600">{collection.holding_status}</span> cans to collect
+                    <span className="font-bold text-orange-600">{collection.holding_status}</span> cans to collect
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="mt-4 p-3 bg-orange-100 rounded-lg">
+              <p className="text-sm text-orange-800">
+                <strong>Note:</strong> These customers have pending cans from previous days that need to be collected.
+              </p>
             </div>
           </div>
         </Card>
