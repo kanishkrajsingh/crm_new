@@ -17,8 +17,21 @@ const pool = require('./database'); // Import the database connection pool
 const app = express();
 const port = process.env.SERVER_PORT || 5000;
 
-app.use(cors());
+// Configure CORS to allow mobile app access
+app.use(cors({
+  origin: true, // Allow all origins for local development
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json()); // This is already correctly configured to parse JSON bodies
+
+// Add middleware to log requests for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} from ${req.ip}`);
+  next();
+});
 
 // Test database connection (optional, but good for initial setup)
 pool.getConnection((err, connection) => {
